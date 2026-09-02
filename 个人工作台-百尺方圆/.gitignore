@@ -1,0 +1,28 @@
+﻿# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# PyInstaller 构建产物
+build/
+dist/
+*.spec.bak
+
+# 本地运行数据（隐私、不入库）
+data/
+*.jsonl
+
+# nanobot 本地配置与密钥（绝不提交）
+nanobot/
+.env
+.env.local
+.env.*.local
+
+# 工具 / 系统
+.trae-html-share-packages/
+*.log
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
