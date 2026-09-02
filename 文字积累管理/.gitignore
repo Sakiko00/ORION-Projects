@@ -1,0 +1,25 @@
+# 依赖 / 虚拟环境
+.venv/
+venv/
+
+# Python 运行时产物
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# 构建产物（PyInstaller）
+build/
+dist/
+
+# 本地运行时配置
+app_cfg.json
+
+# 日志
+*.log
+
+# 系统与编辑器
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json

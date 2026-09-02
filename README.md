@@ -37,6 +37,7 @@ ORION-Projects/
 | 目录 | 项目 | 简介 |
 | ---- | ---- | ---- |
 | `orion-website/` | ORION 官网 | 工作室展示门户（团队介绍 / 项目案例 / AIGC 作品集），Next.js 16 + shadcn/ui |
+| `文字积累管理/` | 文字积累管理 | 本地文字积累工具（诗词 / 古文 / 名言 / 成语典故），词句札记、图表统计与 AI 道场对话，Python 标准库 + 单文件 HTML UI，PyInstaller 打包 EXE |
 | ... | 更多团队项目 | 待加入 |
 
 ## 想找某个项目
