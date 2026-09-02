@@ -1,0 +1,9 @@
+启动器：PCL启动器
+JAVA版
+游戏版本：1.20.1-Forge_47.4.20
+服务器搭载模组：1、[车万女仆] touhoulittlemaid-1.5.2-forge+mc1.20.1
+			      2、[帕秋莉手册] Patchouli-1.20.1-85-FORGE
+                              3、[是，史蒂夫模型] ysm-2.6.5-forge+mc1.20.1-release
+服务器地址：cn-hz1.mfrp.space:27715
+		       cn-hz1.mfrp.space:15146
+进入无需正版验证
