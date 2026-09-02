@@ -1,6 +1,7 @@
 # ORION AI STUDIO
 
 > 团队所有项目的统一代码仓库
+![Uploading ORION World Model.png…]()
 
 这里存放 ORION 团队的**全部项目**——它们是彼此独立、相互隔离的，只是放在同一个 GitHub 仓库里统一管理。
 
