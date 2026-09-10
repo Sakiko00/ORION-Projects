@@ -1,0 +1,80 @@
+{
+  "name": "rta-llm",
+  "version": "1.0.0",
+  "description": "RTA-LLM: 反思性主题分析法自动化工具",
+  "private": true,
+  "main": "electron/main.js",
+  "scripts": {
+    "dev": "concurrently \"npm run dev:frontend\" \"npm run dev:backend\"",
+    "dev:frontend": "cd frontend && npm run dev",
+    "dev:backend": "cd backend && npm run start:dev",
+    "build": "npm run build:frontend && npm run build:backend",
+    "build:frontend": "cd frontend && npm run build",
+    "build:backend": "cd backend && npm run build",
+    "build:package": "node scripts/build-package.js",
+    "start": "cd backend && npm run start:prod",
+    "lint": "cd frontend && npm run lint && cd backend && npm run lint"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "electron": "^33.0.0",
+    "electron-builder": "^25.0.0"
+  },
+  "build": {
+    "appId": "com.rta-llm.app",
+    "productName": "RTA-LLM",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "electron/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "backend/dist",
+        "to": "backend/dist"
+      },
+      {
+        "from": "backend/frontend-out",
+        "to": "backend/frontend-out"
+      },
+      {
+        "from": "backend/node_modules",
+        "to": "backend/node_modules"
+      },
+      {
+        "from": "backend/package.json",
+        "to": "backend/package.json"
+      },
+      {
+        "from": "node-portable",
+        "to": "node-portable"
+      }
+    ],
+    "asarUnpack": [
+      "**/*.node",
+      "**/better-sqlite3/**",
+      "**/sqlite3/**"
+    ],
+    "win": {
+      "target": {
+        "target": "nsis",
+        "arch": "x64"
+      },
+      "icon": "build/installer.ico",
+      "signAndEditExecutable": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "RTA-LLM",
+      "license": null,
+      "installerIcon": "build/installer.ico",
+      "uninstallerIcon": "build/uninstaller.ico",
+      "include": "build/installer.nsh"
+    }
+  }
+}

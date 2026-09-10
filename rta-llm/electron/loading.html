@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RTA-LLM</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft YaHei', sans-serif;
+    background: #060B14;
+    color: #E2E8F0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+  .container {
+    text-align: center;
+    padding: 48px;
+    max-width: 480px;
+  }
+  .logo {
+    width: 80px;
+    height: 80px;
+    margin: 0 auto 24px;
+    background: linear-gradient(135deg, #06B6D4, #14B8A6);
+    border-radius: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 0 40px rgba(6,182,212,0.25);
+  }
+  .logo svg { width: 44px; height: 44px; }
+  h1 {
+    font-size: 30px;
+    font-weight: 800;
+    background: linear-gradient(135deg, #06B6D4, #22D3EE);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 8px;
+    letter-spacing: 2px;
+  }
+  .subtitle {
+    font-size: 13px;
+    color: #64748B;
+    margin-bottom: 36px;
+    letter-spacing: 1px;
+  }
+  .progress-track {
+    width: 100%;
+    height: 4px;
+    background: rgba(255,255,255,0.06);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-bottom: 6px;
+  }
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #06B6D4, #14B8A6, #06B6D4);
+    background-size: 200% 100%;
+    border-radius: 2px;
+    transition: width 0.5s ease;
+    width: 15%;
+    animation: shimmer 2s ease-in-out infinite;
+  }
+  .progress-fill.error { background: #EF4444; animation: none; width: 100%; }
+  .progress-fill.done { animation: none; width: 100%; }
+  @keyframes shimmer {
+    0%, 100% { width: 15%; }
+    50% { width: 75%; }
+  }
+  .steps {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 4px;
+    padding: 0 2px;
+  }
+  .step {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.08);
+    transition: background 0.4s;
+  }
+  .step.active { background: #06B6D4; box-shadow: 0 0 8px rgba(6,182,212,0.6); }
+  .step.done { background: #14B8A6; }
+  .step.error { background: #EF4444; }
+  .status-text {
+    margin-top: 20px;
+    font-size: 14px;
+    color: #94A3B8;
+    min-height: 20px;
+    transition: color 0.3s;
+  }
+  .status-text.error { color: #FCA5A5; }
+  .status-detail {
+    font-size: 12px;
+    color: #475569;
+    margin-top: 8px;
+    min-height: 16px;
+    word-break: break-all;
+    max-width: 440px;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="logo">
+    <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5 12 2"/>
+      <line x1="12" y1="22" x2="12" y2="15.5"/>
+      <polyline points="22 8.5 12 15.5 2 8.5"/>
+      <polyline points="2 15.5 12 8.5 22 15.5"/>
+      <circle cx="12" cy="12" r="2" fill="white"/>
+    </svg>
+  </div>
+  <h1>RTA-LLM</h1>
+  <p class="subtitle">反思性主体分析 · AI 质性研究工具</p>
+  <div class="progress-track"><div class="progress-fill" id="progress"></div></div>
+  <div class="steps">
+    <div class="step" id="s1"></div>
+    <div class="step" id="s2"></div>
+    <div class="step" id="s3"></div>
+    <div class="step" id="s4"></div>
+  </div>
+  <p class="status-text" id="status">正在初始化…</p>
+  <p class="status-detail" id="detail"></p>
+</div>
+<script>
+  const $ = (id) => document.getElementById(id);
+  let step = 0;
+
+  function setStep(n, text, detail) {
+    for (let i = 1; i <= 4; i++) {
+      const s = $('s' + i);
+      s.className = 'step';
+      if (i < n) s.classList.add('done');
+      if (i === n) s.classList.add('active');
+    }
+    step = n;
+    $('status').textContent = text || '';
+    $('detail').textContent = detail || '';
+  }
+
+  function setError(text) {
+    $('progress').classList.add('error');
+    $('status').classList.add('error');
+    $('status').textContent = text;
+    for (let i = 1; i <= 4; i++) $('s' + i).classList.add('error');
+  }
+
+  function setDone() {
+    $('progress').classList.add('done');
+    $('status').textContent = '服务已就绪';
+    for (let i = 1; i <= 4; i++) {
+      $('s' + i).classList.remove('active');
+      $('s' + i).classList.add('done');
+    }
+  }
+
+  if (window.electronAPI) {
+    window.electronAPI.onStatus((data) => {
+      if (data.type === 'step') {
+        setStep(data.step, data.text, data.detail || '');
+      } else if (data.type === 'error') {
+        setError(data.text);
+      } else if (data.type === 'done') {
+        setDone();
+      }
+    });
+  }
+
+  setTimeout(() => setStep(1, '正在检查运行环境…'), 300);
+</script>
+</body>
+</html>

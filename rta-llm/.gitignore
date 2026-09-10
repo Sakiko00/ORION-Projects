@@ -1,0 +1,42 @@
+# 依赖
+node_modules/
+node-portable/
+
+# 构建产物
+dist/
+build/
+out/
+.next/
+release/
+backend/dist/
+backend/frontend-out/
+frontend/out/
+frontend/.next/
+
+# 本地数据（包含 API Key 与用户数据，切勿提交）
+backend/data/
+
+# 环境变量
+.env
+.env.local
+.env.*.local
+
+# 日志
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# 打包缓存
+.electron-builder-cache/
+.electron-cache/
+
+# 系统与编辑器
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+
+# 其他
+*.tsbuildinfo
+next-env.d.ts
+*.zip

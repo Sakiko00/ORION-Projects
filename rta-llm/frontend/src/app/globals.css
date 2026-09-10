@@ -1,0 +1,167 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Noto+Sans+SC:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg-body: #f1f5f9;
+  --bg-surface: #ffffff;
+  --bg-surface-hover: #f8fafc;
+  --bg-card: rgba(255, 255, 255, 0.7);
+  --text-primary: #0f172a;
+  --text-secondary: #334155;
+  --text-muted: #64748b;
+  --border-primary: rgba(6, 182, 212, 0.15);
+  --border-strong: rgba(6, 182, 212, 0.25);
+  --scrollbar-track: #e2e8f0;
+  --scrollbar-thumb: linear-gradient(to bottom, #06B6D4, #0D9488);
+  --selection-bg: rgba(6, 182, 212, 0.2);
+  --selection-fg: #0f172a;
+  --glass-bg: rgba(255, 255, 255, 0.8);
+}
+
+.dark {
+  --bg-body: #060B14;
+  --bg-surface: #0B1121;
+  --bg-surface-hover: #1e293b;
+  --bg-card: rgba(11, 17, 33, 0.7);
+  --text-primary: #f1f5f9;
+  --text-secondary: #cbd5e1;
+  --text-muted: #64748b;
+  --border-primary: rgba(6, 182, 212, 0.1);
+  --border-strong: rgba(6, 182, 212, 0.25);
+  --scrollbar-track: #060B14;
+  --scrollbar-thumb: linear-gradient(to bottom, #06B6D4, #0D9488);
+  --selection-bg: rgba(6, 182, 212, 0.25);
+  --selection-fg: #E2E8F0;
+  --glass-bg: rgba(11, 17, 33, 0.8);
+}
+
+* { box-sizing: border-box; padding: 0; margin: 0; }
+
+html, body {
+  max-width: 100vw;
+  overflow-x: hidden;
+  font-family: 'Inter', 'Noto Sans SC', sans-serif;
+  background: var(--bg-body);
+  color: var(--text-secondary);
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 80% 60% at 15% 50%, rgba(6, 182, 212, 0.04) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 50% at 85% 30%, rgba(20, 184, 166, 0.03) 0%, transparent 55%),
+    radial-gradient(ellipse 40% 40% at 50% 90%, rgba(34, 211, 238, 0.03) 0%, transparent 50%),
+    repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255,255,255,0.003) 2px, rgba(255,255,255,0.003) 4px);
+}
+
+main { position: relative; z-index: 1; }
+
+@layer components {
+  .glass {
+    @apply backdrop-blur-2xl border;
+    background: var(--glass-bg);
+    border-color: var(--border-primary);
+  }
+  .glass-hover {
+    @apply glass transition-all duration-500;
+  }
+  .glass-hover:hover {
+    border-color: rgba(6, 182, 212, 0.25);
+    box-shadow: 0 0 25px rgba(6, 182, 212, 0.08);
+  }
+  .cyan-glow {
+    box-shadow: 0 0 20px rgba(6, 182, 212, 0.12), inset 0 0 20px rgba(6, 182, 212, 0.04);
+  }
+  .cyan-text {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-teal-400;
+  }
+  .cyan-btn {
+    @apply relative overflow-hidden bg-gradient-to-r from-cyan-500 to-teal-500 text-white font-semibold
+           rounded-lg transition-all duration-300 hover:shadow-[0_0_25px_rgba(6,182,212,0.35)] active:scale-[0.98];
+  }
+  .cyan-btn::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to right, transparent, rgba(255,255,255,0.1), transparent);
+    transform: translateX(-100%);
+    transition: transform 0.6s;
+  }
+  .cyan-btn:hover::after { transform: translateX(100%); }
+  .card {
+    @apply glass-hover rounded-xl p-5;
+    background: var(--bg-card);
+  }
+  .input-field {
+    @apply w-full px-3.5 py-2.5 rounded-lg border text-sm
+           focus:border-cyan-400/40 focus:ring-2 focus:ring-cyan-500/15 focus:outline-none
+           transition-all duration-300 font-mono;
+    background: var(--bg-surface);
+    border-color: var(--border-primary);
+    color: var(--text-primary);
+  }
+  .input-field::placeholder {
+    color: var(--text-muted);
+  }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 5px rgba(6, 182, 212, 0.15); }
+  50% { box-shadow: 0 0 20px rgba(6, 182, 212, 0.35); }
+}
+
+@keyframes subtle-float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-4px); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.animate-pulse-glow { animation: pulse-glow 3s ease-in-out infinite; }
+.animate-float { animation: subtle-float 6s ease-in-out infinite; }
+.animate-shimmer {
+  background: linear-gradient(90deg, transparent, rgba(34,211,238,0.06), transparent);
+  background-size: 200% 100%;
+  animation: shimmer 2s infinite;
+}
+
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: var(--scrollbar-track); }
+::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: linear-gradient(to bottom, #22D3EE, #14B8A6); }
+
+::selection { background: var(--selection-bg); color: var(--selection-fg); }
+
+.prose {
+  @apply leading-relaxed;
+  color: var(--text-secondary);
+}
+.prose h1 { @apply text-2xl font-bold cyan-text mb-4 mt-6; }
+.prose h2 { @apply text-xl font-bold mb-3 mt-5; color: var(--text-primary); }
+.prose h3 { @apply text-lg font-semibold mb-2 mt-4; color: var(--text-primary); }
+.prose p { @apply mb-3 text-sm leading-relaxed; color: var(--text-secondary); }
+.prose ul { @apply list-disc list-inside mb-3 space-y-1.5 text-sm; color: var(--text-secondary); }
+.prose ol { @apply list-decimal list-inside mb-3 space-y-1.5 text-sm; color: var(--text-secondary); }
+.prose code { @apply font-mono text-xs bg-cyan-500/10 text-cyan-500 dark:text-cyan-300 px-1.5 py-0.5 rounded; }
+.prose pre { @apply p-3 rounded-lg overflow-x-auto mb-3 border text-xs; background: #1e293b; color: #e2e8f0; border-color: var(--border-primary); }
+.dark .prose pre { background: #0d1117; border-color: rgba(51, 65, 85, 0.5); }
+.prose blockquote { @apply border-l-4 border-cyan-500/40 pl-3 italic my-3 text-sm py-2 rounded-r-lg; color: var(--text-secondary); background: rgba(148, 163, 184, 0.1); }
+.dark .prose blockquote { background: rgba(30, 41, 59, 0.3); }
+.prose table { @apply w-full border-collapse mb-3 text-sm; }
+.prose th { @apply px-3 py-1.5 text-left text-xs font-semibold border; color: var(--text-primary); background: rgba(148, 163, 184, 0.1); border-color: var(--border-primary); }
+.dark .prose th { background: #1e293b; }
+.prose td { @apply px-3 py-1.5 border text-xs; color: var(--text-secondary); border-color: var(--border-primary); }
+.dark .prose td { border-color: #1e293b; }
+.prose strong { @apply font-semibold; color: var(--text-primary); }
+.prose a { @apply text-cyan-500 dark:text-cyan-400 hover:text-cyan-600 dark:hover:text-cyan-300 underline; }
+.prose hr { @apply my-4; border-color: var(--border-primary); }
