@@ -41,6 +41,7 @@ ORION-Projects/
 | `文字积累管理/` | 文字积累管理 | 本地文字积累工具（诗词 / 古文 / 名言 / 成语典故），词句札记、图表统计与 AI 道场对话，Python 标准库 + 单文件 HTML UI，PyInstaller 打包 EXE |
 | `个人工作台-百尺方圆/` | 个人工作台 · 百尺方圆 | 本地优先的个人效率桌面工作台（每日计划/待办、习惯打卡、记账、长期目标、灵感记录），内置基于 nanobot 的 AI 助理；Python 标准库 + 单文件 HTML UI，PyInstaller 打包 EXE |
 | ... | 更多团队项目 | 待加入 |
+| `nurion/` | NURION | 自动化工作台：一句话把重复活儿变成定时任务（Electron + React + nanobot，内嵌引擎，产物可视化 + 六步门槛式构建） |
 
 ## 想找某个项目
 

@@ -1,0 +1,22 @@
+node_modules/
+out/
+dist/
+release/
+*.log
+*.zip
+*.mp3
+.DS_Store
+
+# 随包内嵌的 Python 引擎（332MB，按 resources/engine/README.md 重新生成）
+resources/engine/*
+!resources/engine/README.md
+
+# 本地密钥 —— 绝不提交
+.env
+.env.local
+.tmp/
+
+# 只留在本机，不进公开仓库
+design_spec/
+设计参考/
+自动化工作台搭建日志/

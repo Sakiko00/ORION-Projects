@@ -1,0 +1,167 @@
+/* 温柔主题 · 设计 token —— 源自「工作台-可复用包」01-design/tokens.css
+ * 品牌色：苔绿（比荧光绿降半档饱和）；深色为默认，浅色是「暖阳」。 */
+
+:root {
+  /* 浅色：暖阳 */
+  --background: #f6f3ee;
+  --foreground: #292522;
+  --card: #ffffff;
+  --card-foreground: #292522;
+  --popover: #ffffff;
+  --popover-foreground: #292522;
+
+  --primary: #6fa588;
+  --primary-foreground: #13211b;
+  --secondary: #e3eee8;
+  --secondary-foreground: #292522;
+  --muted: #ede8e1;
+  --muted-foreground: #6e655d;
+  --accent: #e3eee8;
+  --accent-foreground: #1f4d3a;
+  --destructive: #b45f56;
+  --destructive-foreground: #ffffff;
+
+  --border: #e4ded6;
+  --input: #d8d1c8;
+  --ring: #6fa588;
+
+  --chart-1: #5d87a8;
+  --chart-2: #b56f4a;
+  --chart-3: #b0863f;
+  --chart-4: #1f4d3a;
+  --chart-5: #5e967c;
+
+  --sidebar: #ffffff;
+  --sidebar-foreground: #292522;
+  --sidebar-primary: #6fa588;
+  --sidebar-primary-foreground: #13211b;
+  --sidebar-accent: #e3eee8;
+  --sidebar-accent-foreground: #1f4d3a;
+  --sidebar-border: #e4ded6;
+  --sidebar-ring: #6fa588;
+
+  /* 凹陷面：比页面底再深一档（内页底、列表底）—— 卡片才浮得起来。
+     ⚠️ 千万别写 `color-mix(in oklab, var(--background) 40%, black)`：
+     浅色主题下会算出 L=0.38 的**深灰**（0.4×0.96 + 0.6×0），
+     深底配深字，整个页面直接看不见东西。
+     两个主题方向相反，只能各声明一次 —— 深色是「再暗一档」，浅色是「再灰一档」。 */
+  --sunken: color-mix(in oklab, var(--background) 90%, var(--foreground));
+
+  --font-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei UI', 'Microsoft YaHei', 'Noto Sans SC', system-ui, sans-serif;
+  --font-mono: 'Cascadia Mono', 'Consolas', 'Microsoft YaHei UI', monospace;
+
+  --radius: 0.75rem;
+  --spacing: 0.24rem;
+}
+
+.dark {
+  /* 深色：温柔（默认） */
+  --background: #1b1918;
+  --foreground: #e8e2db;
+  --card: #232120;
+  --card-foreground: #e8e2db;
+  --popover: #2c2927;
+  --popover-foreground: #e8e2db;
+
+  --primary: #7fb79a;
+  --primary-foreground: #13211b;
+  --secondary: #2c2927;
+  --secondary-foreground: #e8e2db;
+  --muted: #2c2927;
+  --muted-foreground: #a9a29a;
+  --accent: #1f2a25;
+  --accent-foreground: #7fb79a;
+  --destructive: #c97f75;
+  --destructive-foreground: #ffffff;
+
+  --border: #2e2a28;
+  --input: #3a3532;
+  --ring: #7fb79a;
+
+  --chart-1: #7fa8c4;
+  --chart-2: #d98b6a;
+  --chart-3: #d9b071;
+  --chart-4: #8fc7a9;
+  --chart-5: #7fb79a;
+
+  --sidebar: #232120;
+  --sidebar-foreground: #e8e2db;
+  --sidebar-primary: #7fb79a;
+  --sidebar-primary-foreground: #13211b;
+  --sidebar-accent: #243330;
+  --sidebar-accent-foreground: #7fb79a;
+  --sidebar-border: #2e2a28;
+  --sidebar-ring: #243330;
+
+  /* 凹陷面（深色）：底色本来就暗，直接压黑就是「再深一档」 */
+  --sunken: color-mix(in oklab, var(--background) 40%, black);
+}
+
+/* ============================================================================
+ * 重设计新增：动效 / 层级 / 尺寸
+ *
+ * 规矩还是那条：颜色只从上面那套主题来，这里不加任何色值 ——
+ * 需要透明度就用 color-mix 从 --primary / --foreground 里算出来。
+ * ========================================================================== */
+
+:root {
+  /* 节奏：三种就够，别再多 */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1); /* 回弹（拖拽松手 / 弹出） */
+  --ease-dock: cubic-bezier(0.2, 0.8, 0.2, 1); /* 放大镜（停得住、不晃） */
+  --dur-fast: 0.16s;
+  --dur: 0.24s;
+  --dur-slow: 0.42s;
+
+  /* 尺寸：顶栏高度只在这里定义一次 */
+  --bar-h: 54px;
+  --gap: 14px;
+  --pad: calc(var(--spacing) * 5);
+  --radius-lg: calc(var(--radius) + 6px);
+  --radius-xl: calc(var(--radius) + 12px);
+
+  --shadow-1: 0 1px 2px rgb(0 0 0 / 0.16);
+  --shadow-2: 0 10px 26px -14px rgb(0 0 0 / 0.5);
+  --shadow-pop: 0 22px 50px -20px rgb(0 0 0 / 0.62);
+
+  /* 会发光的东西统一从这儿取，避免每个块自己写一遍 gradient */
+  --glow-soft: color-mix(in oklab, var(--primary) 28%, transparent);
+  --glow-strong: color-mix(in oklab, var(--primary) 60%, transparent);
+  --hairline: color-mix(in oklab, var(--foreground) 9%, transparent);
+  --scrim: color-mix(in oklab, var(--background) 62%, transparent);
+
+  /* 闪屏用的两个色 —— **只有值有用，没有 CSS 消费它们**：
+     闪屏现在是 main/`splashHtml()` 里一段自带内容的 HTML（不走渲染层、要自带颜色），
+     它把浅/深两套值写死了。这里留着是当**配对记录**：
+     ⚠️ 要和 main 的 `splashHtml()` 一致，也要和闪屏窗的 `backgroundColor` 一致。
+        （浅色那套跟上面的 `--background` / `--foreground` 走，深色是下面 .dark 那套。） */
+  --splash: #f6f3ee;
+  --splash-foreground: #292522;
+}
+
+/* ⚠️ 这些混合色必须在 .dark 里重新算：var() 在定义处展开，
+ *   只在 :root 定义会固化浅色的 primary/foreground → 深色下边框几乎隐形。 */
+.dark {
+  --glow-soft: color-mix(in oklab, var(--primary) 28%, transparent);
+  --glow-strong: color-mix(in oklab, var(--primary) 60%, transparent);
+  --hairline: color-mix(in oklab, var(--foreground) 9%, transparent);
+  --scrim: color-mix(in oklab, var(--background) 62%, transparent);
+}
+
+/* 自绘属性必须注册，否则按「离散值」跳 —— 走光会「咔」一下到终点（DESIGN 坑清单） */
+@property --p {
+  syntax: '<number>';
+  inherits: true;
+  initial-value: 0;
+}
+@property --sweep {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+@property --spin {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+

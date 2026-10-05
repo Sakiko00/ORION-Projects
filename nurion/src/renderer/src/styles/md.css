@@ -1,0 +1,269 @@
+/* ============================================================================
+ * md.css —— Markdown 渲染样式（配 src/renderer/src/md.ts）
+ *
+ * 从「工作台-可复用包」的 `01-design/md.css` 搬过来的，
+ * **只换了 token 名字**（那个包用的是写作应用的 token，这里是工作台的）：
+ *   --text-default → --foreground      --text-secondary/tertiary → --muted-foreground
+ *   --bg-brand → --primary             --bg-overlay-l2 → --secondary
+ *   --bg-base-secondary → --background --border-neutral-l1 → --hairline
+ *
+ * 一条分寸：**字号用 em 不用 rem**。同一套样式要同时活在
+ * 对话框（0.78rem）、产物阅读器（0.8rem）里 —— 写 rem 就会有一处不合身。
+ * ========================================================================== */
+
+.md {
+  word-break: break-word;
+}
+
+.md > *:first-child {
+  margin-top: 0;
+}
+.md > *:last-child {
+  margin-bottom: 0;
+}
+
+.md p {
+  margin: 0 0 8px;
+  line-height: 1.72;
+}
+
+.md h3,
+.md h4,
+.md h5,
+.md h6 {
+  margin: 14px 0 6px;
+  font-weight: 650;
+  line-height: 1.35;
+  letter-spacing: -0.01em;
+}
+.md h3 {
+  font-size: 1.06em;
+}
+.md h4 {
+  font-size: 1em;
+}
+.md h5 {
+  font-size: 0.95em;
+}
+.md h6 {
+  font-size: 0.9em;
+  color: var(--muted-foreground);
+}
+
+.md ul,
+.md ol {
+  margin: 0 0 8px;
+  padding-left: 20px;
+}
+.md li {
+  margin: 3px 0;
+  line-height: 1.7;
+}
+.md li::marker {
+  color: var(--muted-foreground);
+}
+
+.md strong {
+  color: var(--foreground);
+  font-weight: 650;
+}
+.md em {
+  font-style: italic;
+}
+
+.md a {
+  color: var(--primary);
+  text-decoration: none;
+}
+.md a:hover {
+  text-decoration: underline;
+}
+
+/* 行内代码：它是「字」，不是「块」—— 所以只给底色和圆角，不换行 */
+.md code {
+  padding: 1px 5px;
+  border-radius: 5px;
+  background: var(--secondary);
+  color: var(--foreground);
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+}
+
+/* 代码块：这是「块」。横着溢出要能自己滚，不然会把整张卡撑破 */
+.md .md-codewrap {
+  position: relative;
+  margin: 0 0 8px;
+}
+.md .md-code {
+  position: relative;
+  margin: 0;
+  padding: 9px 11px;
+  border-radius: 8px;
+  border: 1px solid var(--hairline);
+  background: var(--background);
+  overflow: auto;
+  max-height: 320px;
+}
+.md .md-code code {
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  font-size: 0.86em;
+  line-height: 1.62;
+  white-space: pre;
+}
+
+/* 代码高亮 —— highlight.js 吐出来的那些 class。
+ * 不搬它的整包主题（那是照白底黑字调的，跟这里两套主题打架）：
+ * 只挑常用的几类，颜色全走应用 token，浅色深色自己就跟着变。 */
+.md .hljs-comment,
+.md .hljs-quote {
+  color: var(--muted-foreground);
+  font-style: italic;
+}
+.md .hljs-keyword,
+.md .hljs-selector-tag,
+.md .hljs-literal,
+.md .hljs-section,
+.md .hljs-doctag,
+.md .hljs-name,
+.md .hljs-meta {
+  color: var(--primary);
+  font-weight: 600;
+}
+.md .hljs-string,
+.md .hljs-regexp,
+.md .hljs-addition,
+.md .hljs-attribute,
+.md .hljs-template-variable {
+  color: var(--accent-foreground);
+}
+.md .hljs-number,
+.md .hljs-symbol,
+.md .hljs-bullet,
+.md .hljs-built_in,
+.md .hljs-type,
+.md .hljs-variable,
+.md .hljs-params {
+  color: var(--muted-foreground);
+}
+.md .hljs-title,
+.md .hljs-property,
+.md .hljs-attr {
+  color: var(--foreground);
+  font-weight: 650;
+}
+.md .hljs-deletion {
+  color: var(--destructive);
+}
+.md .hljs-emphasis {
+  font-style: italic;
+}
+.md .hljs-strong {
+  font-weight: 700;
+}
+
+/* 语言名挂在右上角 —— 模型常写 ```python，用户想知道它到底写的什么。
+ * 往左让出复制按钮的位置（两个都放右上，但复制按钮常驻）。 */
+.md .md-code[data-lang]:not([data-lang=''])::after {
+  content: attr(data-lang);
+  position: absolute;
+  top: 8px;
+  right: 52px;
+  font-family: var(--font-mono);
+  font-size: 0.66em;
+  letter-spacing: 0.04em;
+  color: var(--muted-foreground);
+  pointer-events: none;
+}
+/* 复制按钮：模型经常吐整段脚本，第一个想点的就是它。
+ * **常驻不藏** —— 藏起来的按钮等于没有。 */
+.md .md-copy {
+  position: absolute;
+  top: 6px;
+  right: 7px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--hairline);
+  background: var(--secondary);
+  color: var(--muted-foreground);
+  font-size: 0.66em;
+  line-height: 1.6;
+  transition:
+    color var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out);
+}
+.md .md-copy:hover {
+  color: var(--foreground);
+  border-color: var(--glow-soft);
+}
+
+.md blockquote {
+  margin: 0 0 8px;
+  padding: 2px 0 2px 11px;
+  border-left: 2px solid var(--glow-soft);
+  color: var(--muted-foreground);
+}
+
+.md hr {
+  margin: 12px 0;
+  border: 0;
+  border-top: 1px solid var(--hairline);
+}
+
+.md img {
+  max-width: 100%;
+  border-radius: 8px;
+}
+
+/* 打不开的链接（模型写了半截链接时会出现）—— 让它看起来就不像能点的 */
+.md .md-bad {
+  color: var(--muted-foreground);
+  border-bottom: 1px dashed var(--hairline);
+}
+
+/* 模型偶尔带出来的 frontmatter */
+.md .md-fm {
+  margin: 0 0 8px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: var(--secondary);
+  font-family: var(--font-mono);
+  font-size: 0.8em;
+  color: var(--muted-foreground);
+}
+
+/* 表格：对话里地方窄，所以它自己横向滚，不把卡片撑破 */
+.md-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 4px 0 10px;
+  font-size: 0.92em;
+  line-height: 1.6;
+  display: block;
+  overflow-x: auto;
+}
+.md-table th,
+.md-table td {
+  padding: 5px 9px;
+  border: 1px solid var(--hairline);
+  text-align: left;
+  vertical-align: top;
+  white-space: nowrap;
+}
+.md-table th {
+  background: var(--secondary);
+  color: var(--muted-foreground);
+  font-weight: 600;
+}
+.md-table td {
+  color: var(--foreground);
+}
+.md-table tbody tr:nth-child(even) td {
+  background: color-mix(in oklab, var(--secondary) 35%, transparent);
+}
+
+/* 你发的话不渲染 —— 敲什么看到什么，所以它只需要保住换行 */
+.msg.you .msg-text {
+  white-space: pre-wrap;
+}
