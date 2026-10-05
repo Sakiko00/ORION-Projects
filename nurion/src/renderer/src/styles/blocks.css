@@ -1,0 +1,706 @@
+/* ============================================================================
+ * blocks.css —— 借自 bencho.dev 的微交互块
+ *
+ * 借的规矩（照抄 DESIGN.md 1.4）：**动效必须带信息**。
+ *   一直在动 = 花哨；只在有事时动 = 高级。
+ * 所以每个块头上都写着「它到底在传达什么」——说不出信息的，这里一个都没有。
+ *
+ * 全部纯 CSS + 原生指针事件，零依赖、零图标库、零动画库。
+ * 需要「跟鼠标但不重渲染」的地方，一律写 CSS 自定义属性（--mx/--my/--p），
+ * 不走 React state —— 鼠标一动就 setState 会把整页重渲染。
+ * ========================================================================== */
+
+/* ══ 1. 动态岛（借 bencho Dynamic island）══════════════════════════════════
+ * 传达：**后台任务在干什么、跑到第几步**。空闲时缩成一颗小胶囊，有事才长开。
+ * 对应 DESIGN 5.2「自动 ≠ 偷偷摸摸」。                                          */
+.island {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  height: 30px;
+  padding: 0 11px;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--foreground) 90%, transparent);
+  color: var(--background);
+  overflow: hidden;
+  white-space: nowrap;
+  user-select: none;
+  -webkit-app-region: no-drag;
+  transition:
+    height var(--dur) var(--ease-spring),
+    padding var(--dur) var(--ease-out),
+    background var(--dur) var(--ease-out);
+}
+.island[data-open='true'] {
+  height: 36px;
+  padding: 0 6px 0 14px;
+}
+.island[data-state='error'],
+/* 告警和「刚才那次跑失败了」用同一个颜色：都是「有问题，去看一眼」那一档。
+   靠左边的字分（「告警」/「失败了」），不另造一个琥珀色 token —— 多一个颜色
+   就多一个要维护、要在浅色主题里对一遍的东西。 */
+.island[data-state='alert'] {
+  background: var(--destructive);
+  color: var(--destructive-foreground);
+}
+
+/* 0fr → 1fr 的 grid 展开：比 max-width 更稳（内容多长都不裁字） */
+.island-body {
+  display: grid;
+  grid-template-columns: 0fr;
+  opacity: 0;
+  transition:
+    grid-template-columns var(--dur-slow) var(--ease-out),
+    opacity var(--dur) var(--ease-out);
+}
+.island[data-open='true'] .island-body {
+  grid-template-columns: 1fr;
+  opacity: 1;
+}
+.island-body > * {
+  overflow: hidden;
+  min-width: 0;
+}
+
+.island-dot {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 7px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.55;
+}
+.island[data-state='run'] .island-dot {
+  opacity: 1;
+  background: var(--primary);
+  box-shadow: 0 0 0 0 var(--glow-strong);
+  animation: island-pulse 1.5s ease-out infinite;
+}
+@keyframes island-pulse {
+  to {
+    box-shadow: 0 0 0 9px transparent;
+  }
+}
+
+.island-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  padding-left: 8px;
+  white-space: nowrap;
+}
+.island-meta {
+  font-size: 0.75rem;
+  opacity: 0.72;
+  padding-left: 10px;
+  font-variant-numeric: tabular-nums;
+}
+.island-act {
+  margin-left: 12px;
+  border: none;
+  background: color-mix(in oklab, var(--background) 16%, transparent);
+  color: inherit;
+  border-radius: 999px;
+  height: 24px;
+  padding: 0 11px;
+  font-size: 0.74rem;
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease-out);
+}
+.island-act:hover {
+  background: color-mix(in oklab, var(--background) 28%, transparent);
+}
+
+/* ══ 2. 放大镜导航（借 bencho Magnifying dock）══════════════════════════════
+ * 传达：**你在哪一页**。指针落上去，光标那颗放大，左右邻居跟着微抬 ——
+ * 于是「中间那颗是当前落点、旁边还有谁」一眼就出来，不用看文字。              */
+.dock {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 999px;
+  border: 1px solid var(--hairline);
+  background: color-mix(in oklab, var(--card) 72%, transparent);
+  -webkit-app-region: no-drag;
+}
+.dock-item {
+  position: relative;
+  width: 34px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted-foreground);
+  cursor: pointer;
+  transition:
+    transform var(--dur) var(--ease-dock),
+    background var(--dur) var(--ease-out),
+    color var(--dur) var(--ease-out);
+}
+/* 指针在整条 dock 上时先全体收一点，再让落点弹出来 —— 这才是「放大镜」而不是「各自变大」 */
+.dock:hover .dock-item {
+  transform: scale(0.9);
+}
+.dock .dock-item:hover {
+  transform: scale(1.22) translateY(-2px);
+  color: var(--foreground);
+}
+.dock .dock-item:hover + .dock-item,
+.dock .dock-item:has(+ .dock-item:hover) {
+  transform: scale(1.06) translateY(-1px);
+}
+.dock-item.on {
+  background: var(--primary);
+  color: var(--primary-foreground);
+  transform: none;
+}
+.dock-item.on:hover {
+  transform: scale(1.22) translateY(-2px);
+}
+/* 当前页的「下划线」—— 收起文字之后，它是唯一的「你在哪」锚点 */
+.dock-tip {
+  position: absolute;
+  bottom: -1px;
+  left: 50%;
+  translate: -50% 0;
+  font-size: 0.66rem;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  color: var(--foreground);
+  background: var(--popover);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 3px 7px;
+  box-shadow: var(--shadow-2);
+  transition: opacity var(--dur-fast) var(--ease-out);
+}
+.dock-item:hover .dock-tip {
+  opacity: 1;
+  bottom: -30px;
+}
+
+/* ══ 3. 倾斜卡 + 柔光（借 bencho Tilt card / 走光）══════════════════════════
+ * 传达：**「这块是可以指的东西」**。高光跟着指针走，等于给它一层「实体感」；
+ * 没有高光的区域就是背景，不是控件。--mx/--my 由指针事件直接写到元素上。       */
+.tilt {
+  position: relative;
+  transform-style: preserve-3d;
+  transition:
+    transform var(--dur-slow) var(--ease-out),
+    box-shadow var(--dur) var(--ease-out);
+}
+.tilt.is-live {
+  transition: transform 0.06s linear; /* 跟手时不能有缓动，否则像在水里 */
+}
+.tilt::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: radial-gradient(
+    240px circle at var(--mx, 50%) var(--my, 0%),
+    color-mix(in oklab, var(--primary) 16%, transparent),
+    transparent 72%
+  );
+  opacity: 0;
+  transition: opacity var(--dur) var(--ease-out);
+}
+.tilt:hover::after {
+  opacity: 1;
+}
+
+/* 走光边：**只在它正在跑的时候**出现（有事才动） */
+.beam {
+  position: relative;
+}
+.beam::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  pointer-events: none;
+  background: conic-gradient(
+    from var(--sweep),
+    transparent 0 62%,
+    var(--primary) 82%,
+    color-mix(in oklab, var(--primary) 40%, transparent) 90%,
+    transparent 100%
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0;
+  transition: opacity var(--dur) var(--ease-out);
+}
+.beam[data-live='true']::before {
+  opacity: 1;
+  animation: beam-sweep 2.6s linear infinite;
+}
+@keyframes beam-sweep {
+  to {
+    --sweep: 360deg;
+  }
+}
+
+/* ══ 4. 时间轴 scrubber（借 bencho Reasoning slider / Time scrubber）════════
+ * 传达：**今天这一条时间线上，哪几段真的跑过**。
+ * 往右拖，尾巴上拉出一条发光的轨迹 —— 轨迹越长，今天干得越多。               */
+.scrub {
+  position: relative;
+  height: 44px;
+  cursor: pointer;
+  touch-action: none;
+  user-select: none;
+}
+.scrub-track {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 20px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--muted);
+}
+.scrub-fill {
+  position: absolute;
+  left: 0;
+  top: 20px;
+  width: calc(var(--p) * 100%);
+  height: 4px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, transparent, var(--primary));
+  box-shadow: 0 0 16px var(--glow-strong);
+}
+/* 跑过的点：像条码一样落在轴下面。这一层是它们的定位容器，不能省 */
+.scrub-marks {
+  position: absolute;
+  inset: 33px 0 0;
+  height: 4px;
+}
+.scrub-mark {
+  position: absolute;
+  top: 0;
+  width: 2px;
+  height: 10px;
+  border-radius: 2px;
+  background: var(--primary);
+  opacity: 0.75;
+  transition: height var(--dur-fast) var(--ease-out), opacity var(--dur-fast);
+}
+.scrub-mark[data-ok='false'] {
+  background: var(--destructive);
+}
+.scrub-knob {
+  position: absolute;
+  top: 22px;
+  left: calc(var(--p) * 100%);
+  translate: -50% -50%;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--primary);
+  box-shadow:
+    0 0 0 4px color-mix(in oklab, var(--primary) 20%, transparent),
+    0 0 20px var(--glow-strong);
+  cursor: grab;
+}
+.scrub.is-live .scrub-knob {
+  cursor: grabbing;
+  scale: 1.25;
+}
+.scrub-knob::after {
+  content: '';
+  position: absolute;
+  inset: 4px;
+  border-radius: 50%;
+  background: color-mix(in oklab, var(--primary-foreground) 55%, transparent);
+}
+
+/* ══ 5. 滑动确认（借 bencho Slide to confirm）══════════════════════════════
+ * 传达：**这一下是「真的要动手了」**。运行任务会真去采集、真写文件，
+ * 点一下太轻，拖到底才算数 —— 防误触，不是装饰。                              */
+.slide {
+  position: relative;
+  height: 40px;
+  border-radius: 999px;
+  background: var(--muted);
+  overflow: hidden;
+  user-select: none;
+  touch-action: none;
+  cursor: grab;
+  border: 1px solid var(--hairline);
+}
+.slide.is-live {
+  cursor: grabbing;
+}
+.slide-fill {
+  position: absolute;
+  inset: 0;
+  width: calc(var(--p) * 100%);
+  background: linear-gradient(90deg, color-mix(in oklab, var(--primary) 55%, transparent), var(--primary));
+}
+.slide-knob {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  height: 32px;
+  width: 32px;
+  border-radius: 50%;
+  background: var(--card);
+  border: 1px solid var(--hairline);
+  box-shadow: var(--shadow-1);
+  display: grid;
+  place-items: center;
+  will-change: translate;
+}
+.slide-label {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--muted-foreground);
+  padding-left: 26px;
+  pointer-events: none;
+}
+.slide[data-done='true'] .slide-label {
+  color: var(--primary-foreground);
+}
+.slide-hint {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  translate: 0 -50%;
+  font-size: 0.72rem;
+  color: var(--muted-foreground);
+  pointer-events: none;
+}
+
+/* ══ 6. 液态开关（借 bencho Liquid toggle）═════════════════════════════════
+ * 传达：**这个任务现在是活的还是停的**。开的时候圆点被「吸」过去、拉长再弹圆，
+ * 这一下形变本身就是状态变化的过程，比颜色突变好读。                          */
+.lq {
+  position: relative;
+  width: 46px;
+  height: 26px;
+  flex: 0 0 46px;
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+  background: var(--muted);
+  cursor: pointer;
+  padding: 0;
+  transition:
+    background var(--dur) var(--ease-out),
+    border-color var(--dur) var(--ease-out);
+}
+.lq[aria-pressed='true'] {
+  background: color-mix(in oklab, var(--primary) 34%, var(--muted));
+  border-color: var(--glow-soft);
+}
+.lq-dot {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: var(--card);
+  box-shadow: var(--shadow-1);
+  transition:
+    translate var(--dur) var(--ease-spring),
+    width var(--dur-fast) var(--ease-out),
+    background var(--dur) var(--ease-out);
+}
+.lq[aria-pressed='true'] .lq-dot {
+  translate: 20px 0;
+  background: var(--primary);
+}
+.lq:active .lq-dot {
+  width: 24px;
+}
+.lq:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+/* 禁用时不要“按下去”的形变 —— 那是“正在生效”的语意，锁住的时候不该出现 */
+.lq:disabled:active .lq-dot {
+  width: 18px;
+}
+
+/* ══ 7. 步骤刻度（借 bencho Progress ticks）════════════════════════════════
+ * 传达：**跑到第几步**。刻度比百分比诚实 —— 你能看见一共有几格、还差几格。     */
+.ticks {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+.tick {
+  width: 3px;
+  height: 14px;
+  border-radius: 2px;
+  background: var(--hairline);
+  transition: background var(--dur) var(--ease-out), height var(--dur) var(--ease-out);
+}
+.tick[data-on='true'] {
+  background: var(--primary);
+}
+.tick[data-cur='true'] {
+  height: 20px;
+  background: var(--primary);
+  box-shadow: 0 0 10px var(--glow-strong);
+  animation: tick-breathe 1.4s ease-in-out infinite;
+}
+.tick[data-fail='true'] {
+  background: var(--destructive);
+}
+@keyframes tick-breathe {
+  50% {
+    opacity: 0.45;
+  }
+}
+
+/* ══ 8. 采集热力图（借 bencho Heat map）════════════════════════════════════
+ * 传达：**最近 30 天 × 每个节点，哪天成了、哪天断了**。
+ * 一眼扫过去就能揪出「总在周四挂」的那台 —— 这是列表做不到的。                 */
+/* 标签列 + 格子同一个 grid：行高由格子的 aspect-ratio 定，标签自动跟随 */
+.heat {
+  display: grid;
+  gap: 3px;
+  align-content: start;
+  align-items: center;
+  flex: 0 0 auto;
+}
+.heat-name {
+  font-size: 0.62rem;
+  line-height: 1.1;
+  color: var(--muted-foreground);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding-right: 4px;
+}
+.heat-axis {
+  font-size: 0.58rem;
+  line-height: 1;
+  color: var(--muted-foreground);
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+}
+/* 每月 1 日：亮一点，扫一眼就知道列在哪个月开始 */
+.heat-axis[data-start] {
+  color: var(--foreground);
+  font-weight: 650;
+}
+.heat-cell {
+  /* 方块是密度图的命根子：宽高任一个塌了，形状就读不出来 */
+  aspect-ratio: 1;
+  border-radius: 3px;
+  background: var(--muted);
+  transition:
+    transform var(--dur-fast) var(--ease-spring),
+    box-shadow var(--dur-fast) var(--ease-out);
+}
+.heat-cell[data-lv='1'] {
+  background: color-mix(in oklab, var(--primary) 22%, var(--muted));
+}
+.heat-cell[data-lv='2'] {
+  background: color-mix(in oklab, var(--primary) 45%, var(--muted));
+}
+.heat-cell[data-lv='3'] {
+  background: color-mix(in oklab, var(--primary) 72%, var(--muted));
+}
+.heat-cell[data-lv='4'] {
+  background: var(--primary);
+}
+.heat-cell[data-lv='x'] {
+  background: color-mix(in oklab, var(--destructive) 70%, var(--muted));
+}
+.heat-cell:hover {
+  transform: scale(1.4);
+  box-shadow: 0 0 0 1px var(--ring);
+  position: relative;
+  z-index: 2;
+}
+.heat-legend {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.64rem;
+  color: var(--muted-foreground);
+}
+.heat-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.heat-legend i {
+  width: 9px;
+  height: 9px;
+  flex: 0 0 9px;
+  border-radius: 2px;
+  display: block;
+}
+
+/* ══ 9. 径向菜单（借 bencho Radial menu）═══════════════════════════════════
+ * 传达：**「对这一个任务，我能做什么」**。就地长出来，不跳页、不改上下文 ——
+ * 长按哪张卡，菜单就以哪张卡为圆心。                                          */
+.radial {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+}
+.radial-scrim {
+  position: absolute;
+  inset: 0;
+  background: var(--scrim);
+  backdrop-filter: blur(3px);
+  animation: fade-in var(--dur) var(--ease-out);
+}
+.radial-core {
+  position: absolute;
+  translate: -50% -50%;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--muted-foreground);
+  background: var(--card);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-pop);
+  pointer-events: none;
+  text-align: center;
+  line-height: 1.1;
+  animation: pop-in var(--dur) var(--ease-spring);
+}
+.radial-item {
+  position: absolute;
+  width: 62px;
+  height: 62px;
+  margin: 0;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  gap: 2px;
+  font-size: 0.68rem;
+  border: 1px solid var(--border);
+  background: var(--popover);
+  color: var(--foreground);
+  box-shadow: var(--shadow-pop);
+  cursor: pointer;
+  animation: radial-in var(--dur-slow) var(--ease-spring) backwards;
+  animation-delay: calc(var(--i) * 42ms);
+  transition: background var(--dur-fast) var(--ease-out), color var(--dur-fast);
+}
+.radial-item:hover {
+  background: var(--primary);
+  color: var(--primary-foreground);
+  border-color: var(--glow-soft);
+}
+.radial-item[data-danger='true']:hover {
+  background: var(--destructive);
+  color: var(--destructive-foreground);
+}
+@keyframes radial-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.4);
+  }
+}
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    scale: 0.6;
+  }
+}
+
+/* ══ 10. 提示条（借 bencho Notify）═════════════════════════════════════════
+ * 传达：**刚才那一下到底成没成**。-- 不弹窗、不打断，自己会走。                */
+.toasts {
+  position: fixed;
+  right: var(--gap);
+  bottom: var(--gap);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  /* 永远在最上层 —— 包括浮层之上。产物浮层里「用系统程序打开」失败了，
+     提示条要是被浮层挡住，用户就只看到「点了没反应」。 */
+  z-index: 90;
+  pointer-events: none;
+}
+.toast {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  max-width: 340px;
+  padding: 9px 13px;
+  border-radius: 999px;
+  background: var(--popover);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-pop);
+  font-size: 0.8rem;
+  animation: toast-in var(--dur-slow) var(--ease-spring);
+}
+.toast[data-tone='ok'] .toast-dot {
+  background: var(--primary);
+}
+.toast[data-tone='bad'] .toast-dot {
+  background: var(--destructive);
+}
+.toast-dot {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 7px;
+  border-radius: 50%;
+  background: var(--muted-foreground);
+}
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    translate: 0 12px;
+    scale: 0.96;
+  }
+}
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+/* ══ 11. 入场（只在第一次进来时动一次）════════════════════════════════════ */
+.reveal {
+  animation: reveal var(--dur-slow) var(--ease-out) backwards;
+  animation-delay: calc(var(--i, 0) * 55ms);
+}
+@keyframes reveal {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.99);
+  }
+}
+
+/* 关掉动效的人（系统设置 / 截图场景）—— 尊重 prefers-reduced-motion */
+@media (prefers-reduced-motion: reduce) {
+  .reveal,
+  .toast,
+  .radial-item,
+  .radial-core,
+  .beam[data-live='true']::before,
+  .tick[data-cur='true'],
+  .island[data-state='run'] .island-dot {
+    animation: none !important;
+  }
+}

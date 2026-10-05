@@ -1,0 +1,4708 @@
+/* ============================================================================
+ * app.css —— 壳 + Bento 主区
+ *
+ * 三条硬约束（DESIGN.md 1.1 / 1.2 / 1.3）：
+ *   ① 一屏不滚 —— 高度就是 calc(100vh - var(--bar-h))，长内容在**卡内部**滚
+ *   ② Bento 而不是列表 —— 四块大小不一的卡，一眼扫完，不靠把字缩小
+ *   ③ 颜色只从 tokens.css 来 —— 这个文件里不出现任何色值字面量
+ * ========================================================================== */
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  background: var(--background);
+  color: var(--foreground);
+  -webkit-font-smoothing: antialiased;
+}
+
+button,
+input,
+select {
+  font: inherit;
+  color: inherit;
+}
+
+/*
+ * 输入框里的**字和光标**一律用前景色。
+ *
+ * ⚠️ 不显式写这一条，两件事会一起错：`caret-color` 默认跟着 `color` 走，
+ * 而 `.field` / `.kb-new` 这些容器把 `color` 设成了**灰标签色** ——
+ * 于是你敲进去的字、和那根光标**都是灰的**（#a9a29a），
+ * 在近黑的输入底上几乎看不见。用户的原话就是「这个 | 看不清楚」。
+ *
+ * 分寸在这儿：**占位文字仍然灰**（那是"引导"），**敲进去的字和光标要亮**（那是内容）。
+ */
+input,
+textarea {
+  color: var(--foreground);
+  caret-color: var(--foreground);
+}
+input::placeholder,
+textarea::placeholder {
+  color: var(--muted-foreground);
+  /* Firefox 默认会给 placeholder 再叠一层透明度，会和这里的颜色打架 */
+  opacity: 1;
+}
+
+button {
+  cursor: pointer;
+}
+
+/* ── 滚动条：全应用**一套**主题色 ──────────────────────────────
+ * ⚠️ 这里**故意不写** `scrollbar-width` / `scrollbar-color`。
+ *   Chromium 只要看到 `scrollbar-width`，`::-webkit-scrollbar` 就**整条失效**：
+ *   宽度只能听它的（thin 实测约 10px 一条平板），圆角、做细、hover 全都做不了。
+ *   （原来两条路都写，结果就是伪元素那套白写了 —— 生效的一直是标准属性。）
+ *   这是个 Electron 应用，只跑 Chromium，所以走「能自己定分寸」的那条路。
+ *   Firefox 里会退回系统默认样式 —— 那是别人家的浏览器，不是这个应用的运行环境。
+ *
+ * 分寸：**轨道 10px、看得见的滑块 4px**（剩下 6px 由透明边框让出来）。
+ * 为什么不干脆整条都做 4px：那样鼠标得瞄准一条线，滚起来像走钢丝。
+ * **看着细、抓着宽** —— 这两件事本来就不该是同一个数。 */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  /* 22% 已经能看清了；滑块细，所以颜色**别再加浓**，不然又成一条黑杠 */
+  background: color-mix(in oklab, var(--foreground) 22%, transparent);
+  border-radius: 999px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in oklab, var(--foreground) 42%, transparent);
+  background-clip: content-box;
+}
+/* 卡内部滚动用：整页不滚，但卡里得能滚（样式已由上面全局接管） */
+.scroll {
+  overflow: auto;
+}
+
+/* ══ 壳 ══════════════════════════════════════════════════════════════════ */
+
+.app {
+  display: grid;
+  grid-template-rows: var(--bar-h) 1fr;
+  height: 100%;
+  background: var(--background);
+}
+
+.titlebar {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 12px;
+  padding: 0 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--background);
+  position: relative;
+  z-index: 40;
+  /* 整条顶栏是拖拽区 —— 里面每个可点元素都必须 no-drag，否则点它等于拖窗口 */
+  -webkit-app-region: drag;
+  user-select: none;
+}
+.titlebar button,
+.titlebar .dock,
+.titlebar .island,
+.titlebar input {
+  -webkit-app-region: no-drag;
+}
+
+.tb-left,
+.tb-center,
+.tb-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.tb-center {
+  justify-content: center;
+}
+.tb-right {
+  justify-content: flex-end;
+}
+
+.tb-slogan {
+  font-size: 0.74rem;
+  color: var(--muted-foreground);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* mac 风格红绿灯：悬停那一组才冒出 × − + */
+.win-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-left: 4px;
+}
+.traffic {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: none;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  transition:
+    transform var(--dur-fast) var(--ease-out),
+    filter var(--dur-fast);
+}
+.traffic.close {
+  background: #ff5f57;
+}
+.traffic.min {
+  background: #febc2e;
+}
+.traffic.max {
+  background: #28c840;
+}
+.traffic:active {
+  transform: scale(0.88);
+}
+.traffic::before {
+  content: '';
+  display: block;
+  width: 8px;
+  height: 8px;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: contain;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+.win-controls:hover .traffic::before {
+  opacity: 1;
+}
+.traffic.close::before {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10'%3E%3Cpath d='M2.5 2.5l5 5M7.5 2.5l-5 5' stroke='%237c0f0f' stroke-width='1.3' stroke-linecap='round'/%3E%3C/svg%3E");
+}
+.traffic.min::before {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10'%3E%3Cpath d='M2.5 5h5' stroke='%23805c00' stroke-width='1.3' stroke-linecap='round'/%3E%3C/svg%3E");
+}
+.traffic.max::before {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10'%3E%3Cpath d='M5 2.5v5M2.5 5h5' stroke='%230d5c0d' stroke-width='1.3' stroke-linecap='round'/%3E%3C/svg%3E");
+}
+
+.icon-btn {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--muted-foreground);
+  border-radius: 10px;
+  transition:
+    background var(--dur-fast) var(--ease-out),
+    color var(--dur-fast);
+}
+.icon-btn:hover {
+  background: var(--secondary);
+  color: var(--foreground);
+}
+
+.kbd {
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  padding: 1px 5px;
+  border-radius: 5px;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--muted-foreground);
+}
+
+.avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--primary);
+  color: var(--primary-foreground);
+  font-weight: 700;
+  font-size: 0.7rem;
+  flex: 0 0 auto;
+}
+
+/* ══ Bento 主区 ══════════════════════════════════════════════════════════ */
+
+.main {
+  min-height: 0;
+  overflow: hidden;
+}
+
+/*
+ * Bento 四块（大小不一，一眼扫完）：
+ *   ┌─────────────────────────┬────────┐
+ *   │ ① 今日流水线（横跨两列）   │ ④ 任务   │
+ *   ├─────────────┬───────────┤  （贯通） │
+ *   │ ② 采集健康    │ ③ 机器人    │        │
+ *   └─────────────┴───────────┴────────┘
+ * 大卡要横着摆：时间轴这种东西，宽高比错了就像根牙签。
+ */
+.bento {
+  height: 100%;
+  padding: var(--gap);
+  display: grid;
+  gap: var(--gap);
+  grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr) minmax(0, 0.92fr);
+  /* 大卡要装四步 + 时间轴 + 实时输出；下面那行要装得下热力图（14 列方块是定高的） */
+  grid-template-rows: minmax(0, 1.18fr) minmax(0, 0.82fr);
+}
+.b-now {
+  grid-area: 1 / 1 / 2 / 3;
+}
+.b-heat {
+  grid-area: 2 / 1 / 3 / 2;
+}
+.b-alerts {
+  grid-area: 2 / 2 / 3 / 3;
+}
+.b-tasks {
+  grid-area: 1 / 3 / 3 / 4;
+}
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--pad);
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow: hidden;
+}
+.card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex: 0 0 auto;
+}
+.card-head h3 {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+}
+.card-sub {
+  margin: 2px 0 0;
+  font-size: 0.74rem;
+  color: var(--muted-foreground);
+  font-weight: 400;
+}
+
+.eyebrow {
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+}
+.metric {
+  font-size: 1.6rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.15;
+}
+.trend {
+  font-size: 0.74rem;
+  color: var(--muted-foreground);
+}
+.placeholder {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--muted-foreground);
+}
+
+.badge {
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--secondary);
+  color: var(--muted-foreground);
+  white-space: nowrap;
+}
+.badge.ok {
+  background: color-mix(in oklab, var(--primary) 22%, transparent);
+  color: var(--primary);
+}
+.badge.alert {
+  background: color-mix(in oklab, var(--destructive) 20%, transparent);
+  color: var(--destructive);
+}
+
+.dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--muted-foreground);
+  flex: 0 0 7px;
+}
+.dot.online {
+  background: var(--primary);
+  box-shadow: 0 0 0 3px var(--glow-soft);
+}
+.dot.offline {
+  background: var(--muted-foreground);
+  opacity: 0.5;
+}
+
+/* ══ 大卡：今日流水线 ═══════════════════════════════════════════════════ */
+
+.now-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex: 0 0 auto;
+}
+.now-title {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 680;
+  letter-spacing: -0.01em;
+}
+.now-sub {
+  margin: 4px 0 0;
+  font-size: 0.8rem;
+  color: var(--muted-foreground);
+}
+
+/* 步骤条：横向 4 格，每格一根刻度 + 一个状态点 */
+.steps {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+.step {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 10px 11px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: color-mix(in oklab, var(--secondary) 55%, transparent);
+  min-width: 0;
+  transition:
+    border-color var(--dur) var(--ease-out),
+    background var(--dur) var(--ease-out);
+}
+.step[data-state='run'] {
+  border-color: var(--glow-soft);
+  background: color-mix(in oklab, var(--primary) 10%, transparent);
+}
+.step[data-state='fail'] {
+  border-color: color-mix(in oklab, var(--destructive) 45%, transparent);
+}
+.step-name {
+  font-size: 0.82rem;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.step-meta {
+  font-size: 0.7rem;
+  color: var(--muted-foreground);
+  font-variant-numeric: tabular-nums;
+}
+.step-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+/* 一个圆点就够 —— 以前这里放的是单格刻度条，看着像没渲染完 */
+.step-dot {
+  width: 6px;
+  height: 6px;
+  flex: 0 0 6px;
+  border-radius: 50%;
+  background: var(--hairline);
+}
+.step[data-state='done'] .step-dot {
+  background: var(--primary);
+}
+.step[data-state='run'] .step-dot {
+  background: var(--primary);
+  animation: island-pulse 1.5s ease-out infinite;
+}
+.step[data-state='fail'] .step-dot {
+  background: var(--destructive);
+}
+
+.scrub-block {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.scrub-axis {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.66rem;
+  color: var(--muted-foreground);
+  font-variant-numeric: tabular-nums;
+}
+.scrub-readout {
+  position: absolute;
+  top: -2px;
+  left: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  /* 读数只是「显示屏」，不该抢走拖动的手感 */
+  pointer-events: none;
+}
+.scrub-clock {
+  font-family: var(--font-mono);
+  font-size: 1.05rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.scrub-at {
+  font-size: 0.76rem;
+  color: var(--muted-foreground);
+}
+.now-foot {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  flex: 0 0 auto;
+}
+
+/* ══ 实时输出 ══════════════════════════════════════════════════════════
+ * 界面里唯一「会自己长字」的地方 —— 「真在执行」最容易看见的证据。 */
+.run-log {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-height: 0;
+  flex: 1 1 auto;
+}
+.run-log-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex: 0 0 auto;
+}
+.run-log-cmd {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  color: var(--muted-foreground);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+.run-log-body {
+  margin: 0;
+  flex: 1 1 auto;
+  /* 让它可以被压：窗口小的时候先挤日志，而不是把卡片撑破 */
+  min-height: 44px;
+  padding: 8px 10px;
+  border-radius: var(--radius);
+  background: color-mix(in oklab, var(--background) 70%, transparent);
+  border: 1px solid var(--hairline);
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-all;
+  color: var(--muted-foreground);
+}
+.run-log-body.is-live {
+  color: var(--foreground);
+}
+
+/* ══ 产物 ══════════════════════════════════════════════════════════════
+ * 和 .run-log-body 占同一块位置（tab 切换），所以尺寸规则要和它对齐：
+ * flex:1 + min-height 可以被压扁，窗口小的时候不会把卡片撑破。 */
+.run-art-body {
+  flex: 1 1 auto;
+  min-height: 44px;
+  border-radius: var(--radius);
+  background: color-mix(in oklab, var(--background) 70%, transparent);
+  border: 1px solid var(--hairline);
+  overflow: hidden;
+  display: flex;
+}
+.art-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px;
+  width: 100%;
+  min-height: 0;
+}
+.art-item {
+  border-radius: 8px;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 4px;
+}
+.art-item:hover {
+  background: var(--secondary);
+}
+.art-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 3px 4px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted-foreground);
+  text-align: left;
+  transition: color var(--dur-fast) var(--ease-out);
+}
+.art-name:hover {
+  color: var(--foreground);
+}
+.art-label {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.art-size {
+  margin-left: auto;
+  flex: 0 0 auto;
+  font-size: 0.66rem;
+  color: var(--muted-foreground);
+  font-variant-numeric: tabular-nums;
+}
+.art-acts {
+  flex: 0 0 auto;
+  opacity: 0;
+  transition: opacity var(--dur-fast) var(--ease-out);
+}
+.art-item:hover .art-acts {
+  opacity: 1;
+}
+
+/* ── 产物查看浮层 ────────────────────────────────────────────────────
+ * 为什么不是就地展开：产物住在一屏不滚的卡里，撑死一百多像素，
+ * 报表截图 / 7 列的表在那个高度里没法看。图和表本来就该有一块大地方。 */
+.art-viewer {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  padding: 40px;
+  background: color-mix(in oklab, var(--background) 55%, transparent);
+  backdrop-filter: blur(3px);
+  animation: fade-in var(--dur-fast) var(--ease-out);
+}
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+.art-viewer-box {
+  width: min(1000px, 100%);
+  height: min(680px, 100%);
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--hairline);
+  background: var(--card);
+  box-shadow: var(--shadow-pop);
+  overflow: hidden;
+  animation: pop-in var(--dur) var(--ease-out);
+}
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+}
+.art-viewer-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--hairline);
+  flex: 0 0 auto;
+}
+.art-viewer-name {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.art-viewer-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  padding: 12px;
+  overflow: hidden;
+}
+.art-viewer-body > * {
+  width: 100%;
+  min-height: 0;
+}
+
+.art-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border-radius: 8px;
+  background: var(--background);
+}
+.art-table-wrap {
+  overflow: auto;
+}
+.art-table {
+  border-collapse: collapse;
+  font-size: 0.68rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.art-table th,
+.art-table td {
+  padding: 3px 8px;
+  border-bottom: 1px solid var(--hairline);
+  text-align: left;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.art-table th {
+  position: sticky;
+  top: 0;
+  background: var(--card);
+  color: var(--foreground);
+  font-weight: 600;
+}
+.art-table td {
+  color: var(--muted-foreground);
+}
+.art-more {
+  margin: 6px 0 0;
+  font-size: 0.66rem;
+  color: var(--muted-foreground);
+}
+.art-pre {
+  margin: 0;
+  overflow: auto;
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  line-height: 1.6;
+  color: var(--muted-foreground);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.art-md {
+  overflow: auto;
+  font-size: 0.74rem;
+  line-height: 1.7;
+  color: var(--muted-foreground);
+}
+.art-md h3,
+.art-md h4,
+.art-md h5,
+.art-md h6 {
+  margin: 8px 0 4px;
+  color: var(--foreground);
+  font-size: 0.8rem;
+}
+.art-md p {
+  margin: 4px 0;
+}
+.art-md code {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+  background: var(--secondary);
+  padding: 1px 5px;
+  border-radius: 5px;
+}
+.art-md pre {
+  margin: 6px 0;
+  padding: 8px;
+  border-radius: 8px;
+  background: var(--background);
+  overflow: auto;
+}
+.art-md table {
+  border-collapse: collapse;
+  font-size: 0.68rem;
+}
+.art-md th,
+.art-md td {
+  padding: 3px 8px;
+  border-bottom: 1px solid var(--hairline);
+}
+.art-md ul {
+  margin: 4px 0;
+  padding-left: 18px;
+}
+
+/* ══ 热力图卡 ══════════════════════════════════════════════════════════ */
+
+/* 底部一行把「图例 + 结论」合起来 —— 原来是两行（图例一行、三格统计一块） */
+.heat-foot {
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding-top: 10px;
+  border-top: 1px solid var(--hairline);
+}
+.heat-stat {
+  font-size: 0.74rem;
+  color: var(--muted-foreground);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.heat-stat b {
+  color: var(--foreground);
+  font-size: 0.88rem;
+}
+
+/* ══ 机器人卡 ══════════════════════════════════════════════════════════ */
+
+.bot-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 8px;
+  border-radius: var(--radius);
+  transition: background var(--dur-fast) var(--ease-out);
+}
+.bot-row:hover {
+  background: var(--secondary);
+}
+
+/* 警：一条一行，未处置的才给按钮 */
+.alert-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 6px;
+  border-radius: var(--radius);
+  transition: background var(--dur-fast) var(--ease-out);
+}
+.alert-row:hover {
+  background: var(--secondary);
+}
+.alert-row + .alert-row {
+  border-top: 1px solid var(--hairline);
+}
+.alert-row[data-ack='true'] .bot-name {
+  color: var(--muted-foreground);
+  font-weight: 500;
+}
+/* 警的等级：error 红、warn 黄、info 灰 */
+.dot.error {
+  background: var(--destructive);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--destructive) 22%, transparent);
+}
+.dot.warn {
+  background: var(--chart-3);
+}
+.dot.info {
+  background: var(--muted-foreground);
+}
+.alert-intake {
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-top: 9px;
+  border-top: 1px solid var(--hairline);
+  min-width: 0;
+}
+.alert-intake code {
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+.bot-main {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+.bot-name {
+  font-size: 0.84rem;
+  font-weight: 600;
+}
+.bot-meta {
+  font-size: 0.72rem;
+  color: var(--muted-foreground);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ══ 任务卡（右列）══════════════════════════════════════════════════════ */
+
+.task-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+  flex: 1 1 auto;
+}
+/* 在滚动容器里任务卡不能被压扁 */
+.task-list > * {
+  flex: 0 0 auto;
+}
+.task-cmd {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  color: var(--muted-foreground);
+  background: color-mix(in oklab, var(--background) 60%, transparent);
+  border: 1px solid var(--hairline);
+  border-radius: 6px;
+  padding: 3px 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.task-when {
+  font-size: 0.7rem;
+  color: var(--muted-foreground);
+  font-variant-numeric: tabular-nums;
+}
+.chip.warn {
+  color: var(--destructive);
+  border-color: color-mix(in oklab, var(--destructive) 40%, transparent);
+  background: color-mix(in oklab, var(--destructive) 12%, transparent);
+}
+.mini-run {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--hairline);
+  background: var(--secondary);
+  color: var(--muted-foreground);
+  transition:
+    background var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
+}
+.mini-run:hover:not(:disabled) {
+  background: var(--primary);
+  color: var(--primary-foreground);
+  border-color: transparent;
+}
+.mini-run:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.task {
+  position: relative;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: color-mix(in oklab, var(--secondary) 42%, transparent);
+  padding: 10px 11px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  cursor: pointer;
+  will-change: transform;
+  transition:
+    border-color var(--dur) var(--ease-out),
+    background var(--dur) var(--ease-out);
+}
+.task:hover {
+  border-color: var(--glow-soft);
+  background: color-mix(in oklab, var(--primary) 7%, transparent);
+}
+.task[data-over='true'] {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 1px var(--glow-soft);
+}
+.task[data-off='true'] .task-name {
+  color: var(--muted-foreground);
+}
+.task-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.task-name {
+  font-size: 0.86rem;
+  font-weight: 620;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.task-sub {
+  font-size: 0.72rem;
+  color: var(--muted-foreground);
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+  font-variant-numeric: tabular-nums;
+}
+.chip {
+  font-size: 0.68rem;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--secondary);
+  color: var(--muted-foreground);
+  border: 1px solid var(--hairline);
+}
+.grip {
+  cursor: grab;
+  color: var(--muted-foreground);
+  display: grid;
+  place-items: center;
+  padding: 2px;
+  border-radius: 6px;
+}
+.grip:active {
+  cursor: grabbing;
+}
+
+/* ══ 左右两栏的页面（任务搭建 / 知识库）══════════════════════════════════ */
+
+.pane-page {
+  height: 100%;
+  padding: var(--gap);
+  display: grid;
+  gap: var(--gap);
+  min-height: 0;
+}
+.studio,
+.kb {
+  grid-template-columns: minmax(0, 290px) minmax(0, 1fr);
+}
+/* 构建页：顶部一条横跨；左清单贯穿下面两行，右栏上下分「配置卡 + 运行卡」 */
+.pane-page.build {
+  grid-template-columns: minmax(0, 290px) minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr) minmax(0, 1fr);
+}
+.pane-page.build > .build-cmd {
+  grid-column: 1 / -1;
+  grid-row: 1;
+}
+.pane-page.build > .build-list {
+  grid-column: 1;
+  grid-row: 2 / 4;
+}
+.pane-page.build > .build-detail {
+  grid-column: 2;
+  grid-row: 2;
+}
+.pane-page.build > .build-run {
+  grid-column: 2;
+  grid-row: 3;
+}
+
+/* 构建页 —— 向 bencho 借「玻璃卡浮在深底 + 大圆角 + 胶囊按钮」的精致感 */
+.pane-page.build {
+  background: var(--sunken);
+}
+.pane-page.build .card {
+  border: 1px solid color-mix(in oklab, var(--foreground) 8%, transparent);
+  border-radius: 22px;
+  transition: border-color var(--dur) var(--ease-out);
+}
+.pane-page.build .card:hover {
+  border-color: color-mix(in oklab, var(--foreground) 15%, transparent);
+}
+.pane-page.build .action-btn {
+  border-radius: 999px;
+  padding-inline: calc(var(--spacing) * 6);
+}
+/* 卡内元素同一种半透明语言，靠明度分层，不用实心色块 */
+.pane-page.build .node,
+.pane-page.build .check-row:hover,
+.pane-page.build .run-hist-row:hover {
+  background: color-mix(in oklab, var(--foreground) 4%, transparent);
+}
+.pane-page.build .field input,
+.pane-page.build .run-log-body {
+  background: color-mix(in oklab, var(--foreground) 3%, transparent);
+  border-color: color-mix(in oklab, var(--foreground) 10%, transparent);
+}
+.pane-page.build .tabs {
+  background: color-mix(in oklab, var(--foreground) 5%, transparent);
+}
+.pane-page.build .tab.on {
+  background: color-mix(in oklab, var(--foreground) 9%, transparent);
+  color: var(--foreground);
+}
+
+/* ══ 对话（AI 共建页）══════════════════════════════════════════════════ */
+
+.chat {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-right: 6px;
+}
+.chat-empty {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+  text-align: center;
+  /* margin: auto 在纵向 flex 里 = 水平 + 垂直都居中 —— 开场白正好落在浮窗正中间 */
+  margin: auto;
+}
+.chat-hello {
+  margin: 0;
+  font-size: 1.02rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--foreground);
+}
+.msg {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
+  gap: 8px;
+  align-items: start;
+}
+/* 「你」不带头像，整条靠右 —— 谁说的一眼就分出来，不用去读标签。
+ * 这也是 Intercom / Crisp / Messenger 那类浮窗的通行做法：
+ * **归属靠对齐，不靠颜色**。地方小的时候，一个头像列就是 34px。 */
+.msg.you {
+  grid-template-columns: minmax(0, 1fr);
+}
+.msg.you .msg-body {
+  align-items: flex-end;
+}
+.msg-who {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: color-mix(in oklab, var(--primary) 16%, transparent);
+  color: var(--primary);
+  border: 1px solid var(--glow-soft);
+}
+.msg-body {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.msg-text {
+  font-size: 0.82rem;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+/* AI 说的话**不加底** —— 一加，它说的话和它干的活（过程卡片）就糊成一团了。
+ * ChatGPT / Claude 也是这么分的：助手这边只留字，用户那边才是气泡。
+ * ⚠️ 这里必须把 `pre-wrap` 关掉：markdown 自己管换行，留着它会在每个块级元素之间
+ * 再插一行空白 —— 列表会把间距摆成双倍。 */
+.msg.ai .msg-text {
+  padding: 0 2px;
+  white-space: normal;
+}
+.msg.you .msg-text {
+  max-width: 86%;
+  padding: 7px 11px;
+  border-radius: 15px 15px 5px 15px;
+  background: color-mix(in oklab, var(--primary) 16%, transparent);
+  border: 1px solid var(--glow-soft);
+}
+.msg-text.dim {
+  color: var(--muted-foreground);
+}
+.msg-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.tool-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--secondary);
+  color: var(--muted-foreground);
+  border: 1px solid var(--hairline);
+  max-width: 100%;
+}
+.tool-chip b {
+  color: var(--foreground);
+  font-weight: 650;
+}
+/* 参数是「它到底干了什么」的证据，要看得见但别抢戏 */
+.tool-args {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 340px;
+  opacity: 0.85;
+}
+.msg-error {
+  font-size: 0.76rem;
+  line-height: 1.55;
+  color: var(--destructive);
+  background: color-mix(in oklab, var(--destructive) 10%, transparent);
+  border-radius: var(--radius);
+  padding: 8px 11px;
+  word-break: break-word;
+}
+.msg-error-detail {
+  margin: 6px 0;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  opacity: 0.9;
+}
+.msg-error-hint {
+  color: var(--muted-foreground);
+  margin-bottom: 8px;
+}
+.msg-error-hint code,
+.msg-error .action-btn {
+  font-family: inherit;
+}
+.msg-error .action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 11px;
+  font-size: 0.76rem;
+}
+
+/* 本轮新建的任务：就地给「跑一次」，不用跳页 */
+.fresh-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 11px;
+  border-radius: var(--radius);
+  border: 1px solid var(--glow-soft);
+  background: color-mix(in oklab, var(--primary) 8%, transparent);
+}
+.fresh-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 0.8rem;
+}
+.fresh-item code {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--muted-foreground);
+  background: color-mix(in oklab, var(--background) 60%, transparent);
+  border: 1px solid var(--hairline);
+  border-radius: 6px;
+  padding: 2px 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+  flex: 1 1 120px;
+  min-width: 0;
+}
+.msg-meta {
+  font-size: 0.66rem;
+  color: var(--muted-foreground);
+  font-variant-numeric: tabular-nums;
+}
+/* 输入区 = 一个胶囊，发送钮在框**里面**。
+ * 不是为了好看：这样省掉一整行高度（浮窗是按像素算地方的），
+ * 而且「框里有个钮」比「框旁边有个钮」更像一个能说话的地方。
+ * 聚焦时整圈亮一下（focus-within）—— 光标在 textarea 里，但亮的是整圈。 */
+.chat-input {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  flex: 0 0 auto;
+  padding: 8px 10px 8px 12px;
+  border: 1px solid var(--input);
+  border-radius: 18px;
+  background: var(--background);
+  transition:
+    border-color var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out);
+}
+.chat-input:focus-within {
+  border-color: var(--ring);
+  box-shadow: 0 0 0 3px var(--glow-soft);
+}
+.chat-input textarea {
+  width: 100%;
+  min-width: 0;
+  resize: none;
+  padding: 0;
+  border: none;
+  background: transparent;
+  outline: none;
+  font-family: inherit;
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+.chat-send-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+/* 发送钮 = 一个圆 + 一个向上的箭头。
+ * 不放文字：这个形状在现在的对话界面里已经等同于「发出去」，
+ * 而这一行每多一个词，输入框就少一格宽。 */
+.send-btn {
+  flex: 0 0 auto;
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: var(--primary);
+  color: var(--primary-foreground);
+  transition:
+    transform 0.34s cubic-bezier(0.34, 1.4, 0.5, 1),
+    background var(--dur-fast) var(--ease-out);
+}
+.send-btn:hover:not(:disabled) {
+  transform: scale(1.08);
+}
+.send-btn:active:not(:disabled) {
+  transform: scale(0.94);
+}
+/* 没话可说的时候它不是绿的 —— 能点的和不能点的得一眼分得出来 */
+.send-btn:disabled {
+  background: var(--secondary);
+  color: var(--muted-foreground);
+  cursor: default;
+}
+/* 快捷键提示：常驻但降级成最轻的一行，不跟发送钮抢眼 */
+.chat-tip {
+  font-size: 0.62rem;
+  color: var(--muted-foreground);
+  margin-right: auto;
+  user-select: none;
+}
+
+/* 左栏「选一项」 */
+.pick {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  text-align: left;
+  padding: 8px 10px;
+  border-radius: var(--radius);
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--muted-foreground);
+  transition:
+    background var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
+}
+.pick:hover {
+  background: var(--secondary);
+  color: var(--foreground);
+}
+.pick.on {
+  background: color-mix(in oklab, var(--primary) 12%, transparent);
+  border-color: var(--glow-soft);
+  color: var(--foreground);
+}
+.pick-main {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.pick-name {
+  font-size: 0.84rem;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pick-meta {
+  font-size: 0.7rem;
+  color: var(--muted-foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 右栏 tab（任务 / 脚本） */
+.tabs {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 9px;
+  background: var(--secondary);
+  flex: 0 0 auto;
+}
+.tab {
+  padding: 4px 10px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--muted-foreground);
+  font-size: 0.74rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  transition:
+    background var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
+}
+.tab:hover {
+  color: var(--foreground);
+}
+.tab.on {
+  background: var(--background);
+  color: var(--foreground);
+  box-shadow: var(--shadow-1);
+}
+
+/* 脚本项：AI 写出来的产出物 */
+.script-item {
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--radius);
+  transition: background var(--dur-fast) var(--ease-out);
+}
+.script-item:hover {
+  background: var(--secondary);
+}
+.script-head {
+  align-items: flex-start;
+}
+.script-acts {
+  display: flex;
+  gap: 6px;
+  padding: 2px 8px 4px 32px;
+}
+.mini-run {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px 8px;
+  border-radius: 7px;
+  border: 1px solid var(--hairline);
+  background: transparent;
+  color: var(--muted-foreground);
+  font-size: 0.68rem;
+  font-weight: 600;
+  transition:
+    color var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out);
+}
+.mini-run:hover:not(:disabled) {
+  color: var(--foreground);
+  border-color: var(--glow-soft);
+}
+.mini-run:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.script-code {
+  margin: 0 8px 6px;
+  max-height: 190px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--hairline);
+  background: var(--background);
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  line-height: 1.55;
+  color: var(--muted-foreground);
+  white-space: pre;
+  tab-size: 2;
+}
+
+/* ══ 流水线（AI 在干什么） ═══════════════════════════════════════════════
+ * 替代原来的工具 chip 串。要传达的是**「走到哪了、还要几步」**，
+ * 所以没到的阶段也留着（灰色），不是只列发生过的。
+ *
+ * 关键取舍：左侧一列圆点 + 竖线做时间轴感的连接；
+ * 每个动作同时显示**原始工具名**（小灰字），因为阶段是猜的，猜错要能看出来。 */
+.pipe {
+  list-style: none;
+  margin: 0 0 8px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+.pipe-step {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  gap: 8px;
+  position: relative;
+  padding-bottom: 6px;
+}
+/* 圆点之间的连接线：画在圆点那一列的下方，最后一个不画 */
+.pipe-step:not(:last-child)::before {
+  content: '';
+  position: absolute;
+  left: 8.5px;
+  top: 15px;
+  bottom: 0;
+  width: 1px;
+  background: var(--hairline);
+}
+.pipe-dot {
+  width: 17px;
+  height: 17px;
+  margin-top: 1px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 1px solid var(--hairline);
+  background: var(--background);
+  color: var(--muted-foreground);
+  z-index: 1;
+}
+.pipe-body {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.pipe-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--muted-foreground);
+  line-height: 1.2;
+}
+/* 动作列表：**一行一件事**（codex 那边就是这个形状）。
+ * 以前是一排会换行的 chip，字挤在一起、参数只能悬停看 ——
+ * 而悬停是「看不见的信息」：看不见的东西等于不存在。 */
+.pipe-acts {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+.pipe-row {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.pipe-act {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 3px 6px;
+  margin-left: -6px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  text-align: left;
+  transition: background var(--dur-fast) var(--ease-out);
+}
+.pipe-act:hover,
+.pipe-act[data-open='true'] {
+  background: color-mix(in oklab, var(--secondary) 70%, transparent);
+}
+.pipe-act > svg {
+  flex: 0 0 auto;
+  color: var(--muted-foreground);
+  opacity: 0.55;
+}
+.pipe-what {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.72rem;
+  color: var(--foreground);
+}
+/* 原始工具名：小、灰、永远在 —— 阶段归类是猜的，得让用户能核对 */
+.pipe-name {
+  flex: 0 0 auto;
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  color: var(--muted-foreground);
+}
+/* 点开的原始参数：等宽、能自己滚、别把卡片撑破 */
+.pipe-raw {
+  margin: 2px 0 5px;
+  padding: 7px 9px;
+  border-radius: 6px;
+  border: 1px solid var(--hairline);
+  background: var(--background);
+  font-family: var(--font-mono);
+  font-size: 0.64rem;
+  line-height: 1.55;
+  color: var(--muted-foreground);
+  max-height: 140px;
+  overflow: auto;
+  white-space: pre;
+}
+
+/* 「正在干」那行右边转圈 —— 比一个呼吸点更像「在干活」 */
+.spin {
+  width: 10px;
+  height: 10px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  border: 1.5px solid var(--glow-soft);
+  border-top-color: var(--primary);
+  animation: pipe-spin 0.7s linear infinite;
+}
+@keyframes pipe-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.pipe-more,
+.pipe-hint {
+  font-size: 0.68rem;
+  color: var(--muted-foreground);
+  align-self: center;
+}
+.pipe-foot {
+  margin-top: 2px;
+  font-size: 0.66rem;
+  color: var(--muted-foreground);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 干完之后的**折叠态**（只在悬浮窗这种小地方用）。
+ * 五段全摊开要占掉半个小窗，而干完之后你要读的是结论、不是过程。
+ * 做成一颗胶囊而不是一行灰字：它得看得出**能点**，不然没人会去点开看细节。 */
+.pipe-min {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  max-width: 100%;
+  text-align: left;
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--hairline);
+  background: color-mix(in oklab, var(--secondary) 50%, transparent);
+  color: var(--muted-foreground);
+  font-size: 0.68rem;
+  transition:
+    background var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
+}
+.pipe-min:hover {
+  background: var(--secondary);
+  border-color: var(--glow-soft);
+  color: var(--foreground);
+}
+.pipe-min > svg {
+  flex: 0 0 auto;
+}
+.pipe-min > svg:first-child {
+  color: var(--primary);
+}
+.pipe-min b {
+  color: var(--foreground);
+  font-weight: 600;
+  flex: 0 0 auto;
+}
+.pipe-min-path {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  opacity: 0.85;
+}
+.pipe-min-ms {
+  margin-left: auto;
+  flex: 0 0 auto;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.62rem;
+  opacity: 0.85;
+}
+
+/* 悬浮窗窄：动作行也压小一号 */
+.agent-float .pipe {
+  margin-bottom: 6px;
+}
+.agent-float .pipe-what {
+  font-size: 0.7rem;
+}
+.agent-float .pipe-label {
+  font-size: 0.7rem;
+}
+
+/* 还没到：整行压暗，只留形状——让人知道后面还有几步 */
+.pipe-step[data-state='todo'] .pipe-label,
+.pipe-step[data-state='todo'] .pipe-dot {
+  opacity: 0.45;
+}
+/* 正在做：圆点填色 + 呼吸点 */
+.pipe-step[data-state='now'] .pipe-dot {
+  border-color: transparent;
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+.pipe-step[data-state='now'] .pipe-label {
+  color: var(--foreground);
+}
+.pipe-pulse {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--primary);
+  animation: pipe-pulse 1.1s var(--ease-out) infinite;
+}
+@keyframes pipe-pulse {
+  0%,
+  100% {
+    opacity: 0.25;
+    transform: scale(0.85);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+}
+/* 做完了：低调的实心点 */
+.pipe-step[data-state='done'] .pipe-dot {
+  color: var(--primary);
+  border-color: var(--glow-soft);
+}
+/* 出错：停在哪个阶段就标在哪 */
+.pipe-step[data-state='bad'] .pipe-dot {
+  border-color: transparent;
+  background: var(--destructive);
+  color: var(--destructive-foreground);
+}
+.pipe-step[data-state='bad'] .pipe-label {
+  color: var(--destructive);
+}
+
+/* ══ 助手悬浮窗 ══════════════════════════════════════════════════════════
+ * 「对话不是一页内容，是一件随时要用的工具。」
+ * 所以它飘在 .app 之上、任何页面都在，而不是占掉某一页的主位。
+ *
+ * z-index 取 75：在提示条（90）之下 —— 从浮窗里点的动作失败时，
+ * 提示条要能盖在它上面，不然用户会觉得"点了没反应"。
+ * 也比产物浮层（80）低一档：看大图时浮窗该让位。
+ */
+.agent-float {
+  position: fixed;
+  z-index: 75;
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--hairline);
+  background: var(--card);
+  box-shadow: var(--shadow-pop);
+  overflow: hidden;
+  /* 开窗 = **从那颗球里长出来**，不是从自己的中心弹出来。
+   * 球的中心在窗内的坐标由 JS 算好塞进 --fx/--fy（CSS 拿不到球的位置）。
+   * 回弹曲线用 --ease-spring：张开的最后一下会轻轻过冲，像真的弹出来。 */
+  transform-origin: var(--fx, 50%) var(--fy, 50%);
+  animation: float-in var(--dur-slow) var(--ease-spring);
+}
+@keyframes float-in {
+  from {
+    opacity: 0;
+    transform: scale(0.3);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+.agent-float-head {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 9px 9px 11px;
+  border-bottom: 1px solid var(--hairline);
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklab, var(--primary) 11%, transparent),
+    color-mix(in oklab, var(--secondary) 40%, transparent)
+  );
+  flex: 0 0 auto;
+  /* 拖拽区 —— 里面每个可点元素都要 stopPropagation，否则点它等于拖窗口 */
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+}
+.agent-float-head:active {
+  cursor: grabbing;
+}
+/* 头像 = 球的小号：收起来是一颗球，张开还是那颗球（同一个符号，不是两个东西） */
+.agent-float-avatar {
+  width: 26px;
+  height: 26px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: color-mix(in oklab, var(--primary) 20%, transparent);
+  color: var(--primary);
+  border: 1px solid var(--glow-soft);
+}
+.agent-float-avatar[data-state='thinking'] {
+  animation: ball-breathe 1.4s var(--ease-out) infinite;
+}
+.agent-float-avatar[data-state='down'] {
+  background: var(--secondary);
+  color: var(--muted-foreground);
+  border-color: var(--hairline);
+}
+/* 标题 + 状态堆成两行。比原来「助手 · 状态」挤一行更好读，
+ * 也腾出中间那块地方给拖动（头部的空处就是拖拽区） */
+.agent-float-id {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  margin-right: auto;
+}
+.agent-float-id b {
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1.15;
+}
+.agent-float-id em {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-style: normal;
+  font-size: 0.64rem;
+  color: var(--muted-foreground);
+  line-height: 1.2;
+}
+.agent-float-id em::before {
+  content: '';
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+  background: var(--muted-foreground);
+}
+.agent-float-id em[data-state='thinking']::before {
+  background: var(--primary);
+  animation: pipe-pulse 1.1s var(--ease-out) infinite;
+}
+.agent-float-id em[data-state='task']::before {
+  background: var(--primary);
+}
+.agent-float-id em[data-state='down']::before {
+  background: var(--destructive);
+}
+.agent-float-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 10px 10px 10px;
+}
+
+/* ── 助手桌面窗口（独立 BrowserWindow，?agent=1）──
+ * 复用 .agent-float 整套浮窗样式，只补窗口级的东西：铺满窗口 + 头部当拖拽区 */
+.agent-window {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 1;
+  border-radius: 0;
+}
+/* 独立窗口里头部是系统拖拽区（能拖到桌面任何地方），不再手动拖 */
+.agent-window .agent-float-head {
+  -webkit-app-region: drag;
+  cursor: default;
+}
+.agent-window .agent-float-head .icon-btn {
+  -webkit-app-region: no-drag;
+}
+/* 浮窗里所有东西压小一号 —— 地方就这么大 */
+.agent-float .chat {
+  padding: 0;
+  gap: 10px;
+}
+.agent-float .msg-who {
+  width: 21px;
+  height: 21px;
+}
+.agent-float .msg {
+  grid-template-columns: 21px minmax(0, 1fr);
+  gap: 7px;
+}
+.agent-float .msg.you {
+  grid-template-columns: minmax(0, 1fr);
+}
+.agent-float .msg-text {
+  font-size: 0.78rem;
+}
+.agent-float .chat-input {
+  margin-top: 8px;
+  gap: 4px;
+  padding: 7px 8px 7px 12px;
+}
+.agent-float .chat-input textarea {
+  font-size: 0.76rem;
+}
+/* 浮窗窄，圆钮也小一号 */
+.agent-float .send-btn {
+  width: 28px;
+  height: 28px;
+}
+.chat-engine-warn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+  margin-bottom: 6px;
+}
+
+/* ── 收起态：一颗可以拖到任何位置的球 ────────────────────────────────
+ * 动效借自「工作台-可复用包」的 `.tb-waffle`：**回弹曲线**（1.4 是过冲感的来源），
+ * 不是线性、也不是普通的 ease —— 那点过冲就是"这东西是活的"的全部来源。
+ * 位置由 JS 写 left/top，所以这里不写 right/bottom。 */
+/* 灵动岛：收起时是一条顶部胶囊，不是一颗球 —— 点一下从岛里长开成窗 */
+.agent-ball {
+  position: fixed;
+  z-index: 76;
+  width: 168px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 11px;
+  border-radius: 999px;
+  border: 1px solid var(--hairline);
+  background: color-mix(in oklab, var(--card) 78%, transparent);
+  backdrop-filter: blur(14px);
+  color: var(--muted-foreground);
+  box-shadow: var(--shadow-2);
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+  transition:
+    transform 0.42s cubic-bezier(0.34, 1.4, 0.5, 1),
+    color var(--dur) var(--ease-out),
+    border-color var(--dur) var(--ease-out),
+    box-shadow var(--dur) var(--ease-out);
+}
+.agent-ball:active {
+  cursor: grabbing;
+}
+.agent-ball:hover {
+  transform: scale(1.04);
+  color: var(--foreground);
+  border-color: var(--glow-soft);
+  box-shadow: var(--shadow-pop);
+}
+/* 胶囊里的状态字 —— 短文案，完整解释在 title */
+.agent-ball-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 0.76rem;
+  font-weight: 550;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: left;
+}
+.agent-ball > svg {
+  flex: 0 0 auto;
+  transition: transform 0.42s cubic-bezier(0.34, 1.4, 0.5, 1);
+}
+.agent-ball:hover > svg {
+  transform: scale(1.1);
+}
+
+/* 它在干活时，外面荡开一圈水波 —— 这是"还在动"最省地方的说法 */
+.agent-ball-ring {
+  position: absolute;
+  inset: -1px;
+  border-radius: 999px;
+  border: 1px solid var(--primary);
+  opacity: 0;
+  pointer-events: none;
+}
+.agent-ball[data-state='thinking'] .agent-ball-ring,
+.agent-ball[data-state='task'] .agent-ball-ring,
+.agent-ball[data-state='ask'] .agent-ball-ring {
+  animation: ball-ping 1.8s var(--ease-out) infinite;
+}
+/* 停在门槛上等你点头 —— 这是全应用里**唯一在等你**的状态，得比「它在忙」显眼 */
+.agent-ball[data-state='ask'] {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+.agent-ball[data-state='ask'] > svg {
+  animation: ball-breathe 1.8s var(--ease-out) infinite;
+}
+.agent-ball[data-state='ask'] .agent-ball-dot {
+  background: var(--primary);
+}
+@keyframes ball-ping {
+  0% {
+    opacity: 0.65;
+    transform: scale(1);
+  }
+  70%,
+  100% {
+    opacity: 0;
+    transform: scale(1.6);
+  }
+}
+/* 有任务在跑：水波慢一档 —— 它不像"回话"那么急，但一直有动静 */
+.agent-ball[data-state='task'] .agent-ball-ring {
+  animation-duration: 2.6s;
+}
+.agent-ball[data-state='thinking'] > svg {
+  animation: ball-breathe 1.4s var(--ease-out) infinite;
+}
+@keyframes ball-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 0.85;
+  }
+  50% {
+    transform: scale(1.18);
+    opacity: 1;
+  }
+}
+.agent-ball[data-state='down'] {
+  color: var(--muted-foreground);
+  opacity: 0.75;
+}
+
+.agent-ball-dot {
+  flex: 0 0 8px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 2px solid var(--card);
+  background: var(--muted-foreground);
+  transition: background var(--dur) var(--ease-out);
+}
+.agent-ball[data-state='thinking'] .agent-ball-dot {
+  background: var(--primary);
+  animation: pipe-pulse 1.1s var(--ease-out) infinite;
+}
+.agent-ball[data-state='task'] .agent-ball-dot {
+  background: var(--primary);
+}
+.agent-ball[data-state='down'] .agent-ball-dot {
+  background: var(--destructive);
+}
+
+/* 桌面小部件：胶囊铺满整个小窗口，四角透明露出桌面。
+   悬停不放大 —— 放大就顶出 168×34 的窗口边界，圆角被裁掉。 */
+.widget-pill {
+  position: absolute;
+  inset: 0;
+}
+.widget-pill:hover {
+  transform: none;
+}
+.widget-pill:hover > svg {
+  transform: none;
+}
+
+/* 桌面桌宠：小家伙在窗口底部。
+ * 没事时是个小家伙，有事时**整个换成灵动岛**（`DynamicIsland`）——
+ * 所以这里不再有气泡：气泡和岛说的是同一件事。 */
+.pet-holder {
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  cursor: grab;
+}
+.pet-holder:active {
+  cursor: grabbing;
+}
+/* 变成岛的时候：窗就是岛（320×36），所以**岛要铺满窗** ——
+   不铺满的话胶囊四周会留一圈透明，点上去一样吃掉鼠标。 */
+.pet-holder[data-mode='island'],
+.pet-holder[data-mode='island']:active {
+  align-items: stretch;
+  justify-content: center;
+  cursor: pointer;
+}
+/* 任务名是用户起的，可能任意长 —— 只能截 meta。
+   截断靠 flex 链：每一层都要 min-width:0，"停掉"和刻度则一律不许缩。 */
+.pet-holder .island-label,
+.pet-holder .island-act,
+.pet-holder .ticks {
+  flex: none;
+}
+.pet-holder .island-meta {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 桌宠本体：苔绿。Watcher 的 body 用 currentColor 取这个色（SVG 路径填充），
+   眼睛白色在 Watcher 里写死。尺寸由 JS 随设置调。**不要投影** —— 桌宠要干净地贴在桌面上。 */
+.pet-body {
+  color: #5d967c;
+}
+
+/* 设置页里桌宠的形象/眼睛选择按钮组 */
+.pet-pick {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+/* 桌宠滑块：跟随/回弹/大小 */
+.pet-val {
+  min-width: 36px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted-foreground);
+  font-size: 0.78rem;
+}
+.form-row input[type='range'] {
+  flex: 1 1 auto;
+  accent-color: var(--primary);
+}
+
+/* ── 轮播：一步一张卡，走完一步自动滑过去 ───────────────────────────
+ * 住在**悬浮窗**里（420px 宽），不住在页面上：
+ *   页面上摆一整块流程，等于让「过程」搶走「成果」的地方；
+ *   而流程是「我正在跟你把这件事做实」，本来就该贴着对话。
+ *
+ * 为什么是轮播而不是「排成一排」或「叠成一列」：
+ *   排成一排 —— 六张卡塞不进 400px；
+ *   叠成一列 —— 要滚，破「一屏不滚」。
+ *   而「现在走到哪了」本来就是个**位置**问题，位置用滑动表达最直接。
+ * 缓动借 bencho 的回弹（1.4 那个超调），滑过去会「顿」一下 —— 那就是翻页的手感。 */
+.build-flow {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+.flow-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.flow-sub {
+  flex: 0 0 auto;
+  font-size: 0.68rem;
+  color: var(--muted-foreground);
+}
+.car-dots {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex: 0 0 auto;
+}
+.car-dot {
+  width: 7px;
+  height: 7px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid var(--hairline);
+  background: transparent;
+  transition:
+    background var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    transform var(--dur-fast) var(--ease-spring);
+}
+.car-dot[data-state='passed'] {
+  background: var(--primary);
+  border-color: transparent;
+  /* 借 bencho Finds「Stepper that gives」：走完一关，那颗点**长成小胶囊**
+     —— 「翻过去」这件事就有了形，不用再去数第几颗是空的 */
+  width: 16px;
+  border-radius: 999px;
+  animation: car-dot-give 0.42s var(--ease-spring);
+}
+@keyframes car-dot-give {
+  0% {
+    width: 7px;
+  }
+  55% {
+    width: 19px;
+  }
+  100% {
+    width: 16px;
+  }
+}
+.car-dot[data-state='now'] {
+  border-color: var(--primary);
+  transform: scale(1.35);
+}
+.car-dot[data-state='wait'] {
+  background: var(--primary);
+  border-color: transparent;
+  transform: scale(1.35);
+  animation: pipe-pulse 1.4s var(--ease-out) infinite;
+}
+.car-dot[data-state='rejected'] {
+  background: var(--destructive);
+  border-color: transparent;
+  transform: scale(1.35);
+}
+.car-nav {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  flex: 0 0 auto;
+}
+
+.carousel {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+}
+.car-track {
+  display: flex;
+  align-items: stretch;
+  width: 100%;
+  transition: transform var(--dur-slow) cubic-bezier(0.34, 1.4, 0.5, 1);
+}
+/* 卡填满整张浮窗 —— 地方大才容得下「一个大按钮」这句话。
+ * ⚠️ 宽度必须写 `flex: 0 0 100%`（不是 `1 1 auto`）：
+ * 滑动的距离是 `translateX(-N * 100%)`，而百分比是相对 track 自己的宽度 ——
+ * 卡要是按比例分宽度，一张就不等于一个 100% 了，位置全错。高度靠 stretch 撑。 */
+.car-card {
+  flex: 0 0 100%;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 15px;
+  border-radius: var(--radius);
+  border: 1px solid var(--hairline);
+  background: color-mix(in oklab, var(--secondary) 35%, transparent);
+  /* 内容比卡高时靠内部滚动，不把门槛顶出窗外 */
+  overflow: hidden;
+}
+/* 卡的「身体」—— 要滚的是这一段。
+ * 以前整张卡一起长，内容一多就把底部的门槛（那个大按钮）挤出可视区，
+ * 用户根本点不到「通过」。拆成「可滚的身体 + 吸底的门槛」就把这事从根上解决了。 */
+.car-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+/* 走过的步降一档 —— 现在看的这张才是主角。
+ * 借 bencho Finds「Done sinks away」：办完的事不是变灰，是**沉下去**。
+ * 这里用「往下挪 5px + 缩小 0.985 + 名字划线」把它归到下位。 */
+.car-card[data-state='passed'][data-now='false'] {
+  background: color-mix(in oklab, var(--secondary) 20%, transparent);
+  transform: translateY(5px) scale(0.985);
+  transition: transform 0.42s var(--ease-out);
+}
+.car-card[data-state='passed'][data-now='false'] .car-name {
+  text-decoration: line-through;
+  text-decoration-color: var(--hairline);
+  text-decoration-thickness: 1px;
+}
+.car-card[data-now='true'] {
+  border-color: var(--glow-soft);
+  background: color-mix(in oklab, var(--primary) 6%, transparent);
+}
+.car-card[data-state='rejected'] {
+  border-color: color-mix(in oklab, var(--destructive) 40%, transparent);
+}
+.car-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.car-no {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 0.62rem;
+  font-variant-numeric: tabular-nums;
+  border: 1px solid var(--hairline);
+  color: var(--muted-foreground);
+}
+.car-card[data-state='passed'] .car-no {
+  background: var(--primary);
+  border-color: transparent;
+  color: var(--primary-foreground);
+}
+.car-card[data-now='true'][data-state='wait'] .car-no {
+  background: var(--primary);
+  border-color: transparent;
+  color: var(--primary-foreground);
+}
+.car-name {
+  font-size: 0.82rem;
+  font-weight: 650;
+  flex: 0 0 auto;
+}
+.car-does {
+  font-size: 0.68rem;
+  color: var(--muted-foreground);
+  /* 最多两行 —— 这行是「这一步在干什么」，被省略号截掉就等于没写 */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  min-width: 0;
+}
+.car-tag {
+  margin-left: auto;
+  flex: 0 0 auto;
+  font-size: 0.64rem;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--hairline);
+  color: var(--muted-foreground);
+}
+.car-tag.ok {
+  border-color: transparent;
+  background: color-mix(in oklab, var(--primary) 18%, transparent);
+  color: var(--primary);
+}
+.car-tag.wait {
+  border-color: var(--glow-soft);
+  color: var(--primary);
+}
+.car-tag.bad {
+  border-color: color-mix(in oklab, var(--destructive) 45%, transparent);
+  color: var(--destructive);
+}
+
+/* 交出来的东西 —— 每一步都得有；拿不出来就不算做完 */
+.car-note {
+  margin: 0;
+  font-size: 0.74rem;
+  line-height: 1.55;
+}
+.car-todo {
+  margin: 0;
+  font-size: 0.72rem;
+  color: var(--muted-foreground);
+}
+.car-ev {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.car-ev code {
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: color-mix(in oklab, var(--background) 60%, transparent);
+  border: 1px solid var(--hairline);
+  color: var(--muted-foreground);
+}
+
+/* 它还说了什么 / 它这一轮干了什么 —— 都在卡里，不用切到别处看 */
+.car-work {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  min-height: 0;
+}
+/* 「它这一轮说了什么」是一行开关，不是一块内容：
+   同一件事下面的门槛已经说了一遍，整段回复默认不摊开。 */
+.car-said-toggle {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted-foreground);
+  font-size: 0.68rem;
+  transition:
+    color var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out);
+}
+.car-said-toggle:hover {
+  color: var(--foreground);
+  border-color: var(--ring);
+}
+.car-said {
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--hairline);
+  background: color-mix(in oklab, var(--background) 55%, transparent);
+  font-size: 0.78rem;
+  /* 给足空间，但**不能无限长**：卡片下半截是那个大按钮。
+     超出的靠自己滚（以前只给 170px，每次看到一半就没了，像被截断）。 */
+  max-height: min(44vh, 280px);
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+/* 卡里地方小，Markdown 得收着排 —— 这三条是「输出很乱」的主要来源：
+ *   ① 标题跟正文一样大 → 层次没了，看着就是一堆字
+ *   ② 宽表格/长代码把卡片撑破 → 右边半截永远在窗外
+ *   ③ 长路径/长链接不换行 → 一行顶出去
+ * 选择器前面加 `.car-card` 提一级特异性，压住全局 `.md` 那套
+ * （那是给知识库整页排版写的，字号和边距都不适合卡片）。 */
+.car-card .car-said h1,
+.car-card .car-said h2,
+.car-card .car-said h3,
+.car-card .car-said h4,
+.car-card .car-ask h1,
+.car-card .car-ask h2,
+.car-card .car-ask h3,
+.car-card .car-ask h4 {
+  font-size: 0.8rem;
+  line-height: 1.4;
+  margin: 8px 0 4px;
+}
+.car-card .car-said > :first-child,
+.car-card .car-ask > :first-child {
+  margin-top: 0;
+}
+.car-card .car-said p,
+.car-card .car-ask p {
+  margin: 4px 0;
+}
+.car-card .car-said ul,
+.car-card .car-said ol,
+.car-card .car-ask ul,
+.car-card .car-ask ol {
+  margin: 4px 0;
+  padding-left: 18px;
+}
+.car-card .car-said li,
+.car-card .car-ask li {
+  margin: 2px 0;
+}
+.car-card .car-said table,
+.car-card .car-ask table {
+  display: block;
+  width: max-content;
+  max-width: 100%;
+  overflow-x: auto;
+  font-size: 0.72rem;
+}
+.car-card .car-said pre,
+.car-card .car-ask pre {
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 200px;
+  overflow: auto;
+}
+.car-card .car-said img,
+.car-card .car-ask img {
+  max-width: 100%;
+  height: auto;
+}
+.car-card .car-said,
+.car-card .car-ask {
+  overflow-wrap: anywhere;
+}
+
+/* 门槛：它停在这儿了，等你说话。
+ * `margin-top: auto` 把它压到卡片底部 —— 一进来看见的就是那个大按钮。 */
+.car-gate {
+  margin-top: auto;
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  padding-top: 11px;
+  border-top: 1px solid var(--hairline);
+}
+/* 门槛那段话：助手写了【小标题】就拆成「标签 + 一句」两列，一个词就能扫到 */
+.car-ask {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  font-size: 0.78rem;
+  line-height: 1.6;
+  color: var(--foreground);
+}
+.ask-row {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 8px;
+  align-items: start;
+}
+.ask-k {
+  margin-top: 1px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--primary) 12%, transparent);
+  color: var(--primary);
+  font-size: 0.64rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.ask-v,
+.ask-plain {
+  margin: 0;
+  /* 一格里也可能写两行 —— 别把换行吃掉 */
+  white-space: pre-wrap;
+}
+.ask-plain {
+  white-space: pre-wrap;
+}
+/* 通过 = **整条大按钮**。不是一堆并列的小按钮 ——
+ * 建一件事的时候你要做的决定只有一个，那就只给一个按钮。 */
+.car-go {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 13px 16px;
+  border: none;
+  border-radius: var(--radius);
+  /* 全应用就这一个「点它就能往下走」的按钮 —— 给它一点体积感 */
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklab, var(--primary) 90%, white) 0%,
+    var(--primary) 100%
+  );
+  color: var(--primary-foreground);
+  box-shadow: 0 6px 16px -10px color-mix(in oklab, var(--primary) 70%, transparent);
+  font-size: 0.88rem;
+  font-weight: 650;
+  transition:
+    transform 0.34s cubic-bezier(0.34, 1.4, 0.5, 1),
+    opacity var(--dur-fast) var(--ease-out);
+}
+.car-go:hover:not(:disabled) {
+  transform: scale(1.015);
+}
+.car-go:active:not(:disabled) {
+  transform: scale(0.985);
+}
+.car-go:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+/* 按下时的两件事（都是「反馈」，不加步骤）：
+ * 1. **压下去**再弹回来 —— 借 bencho「Stepper that gives」：按下要快（0.1s），
+ *    松手走轨迹上那条带 1.4 超调的曲线（0.34s），一快一慢就是实体按钮的手感
+ * 2. 捺过一道光 —— 借 bencho「Hold to continue」按下画一圈的那个“我有反应了”，
+ *    但**不要求按住**：它在关键路径上，不能变难按 */
+.car-go {
+  position: relative;
+  overflow: hidden;
+}
+.car-go::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(
+    100deg,
+    transparent 18%,
+    color-mix(in oklab, white 60%, transparent) 50%,
+    transparent 82%
+  );
+  transform: translateX(-130%);
+  opacity: 0;
+}
+.car-go:active:not(:disabled) {
+  transform: scale(0.982, 0.93);
+  transition: transform 0.1s var(--ease-out);
+}
+.car-go:active:not(:disabled)::after {
+  animation: car-go-sheen 0.44s var(--ease-out);
+}
+@keyframes car-go-sheen {
+  from {
+    transform: translateX(-130%);
+    opacity: 0.85;
+  }
+  to {
+    transform: translateX(130%);
+    opacity: 0;
+  }
+}
+/* 关了动效的人（系统设置 / 截图场景）—— 只留颜色变化，不动位置 */
+@media (prefers-reduced-motion: reduce) {
+  .car-go:active:not(:disabled),
+  .car-card[data-state='passed'][data-now='false'] {
+    transform: none;
+  }
+  .car-go:active:not(:disabled)::after,
+  .car-dot[data-state='passed'] {
+    animation: none;
+  }
+}
+/* 打回是例外，不是常态 —— 所以它是一行小字，不是并排的第二个按钮 */
+.car-why-open {
+  align-self: center;
+  padding: 2px 8px;
+  border: none;
+  background: transparent;
+  color: var(--muted-foreground);
+  font-size: 0.72rem;
+  text-decoration: underline;
+  text-decoration-color: var(--hairline);
+  text-underline-offset: 3px;
+  transition: color var(--dur-fast) var(--ease-out);
+}
+.car-why-open:hover {
+  color: var(--foreground);
+}
+.car-why-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.car-why {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 8px 10px;
+  border-radius: var(--radius);
+  border: 1px solid var(--input);
+  background: var(--background);
+  outline: none;
+  font-size: 0.76rem;
+}
+.car-why:focus {
+  border-color: var(--ring);
+}
+.car-why-row .action-btn {
+  flex: 0 0 auto;
+}
+.car-doing,
+.car-rejected,
+.car-blocked,
+.car-stall {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 0.72rem;
+  color: var(--muted-foreground);
+}
+.car-rejected,
+.car-blocked,
+.car-stall {
+  color: var(--destructive);
+}
+/* 它说完了却没停 —— 这是唯一一个「界面上看起来在跑、其实已经停了」的状态，
+ * 所以它得长得跟「进行中」不一样。 */
+.car-stall {
+  flex-wrap: wrap;
+  margin-top: auto;
+}
+.car-stall .action-btn {
+  flex: 0 0 auto;
+}
+
+.flow-done,
+.car-back {
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 0.72rem;
+  color: var(--primary);
+  align-self: flex-start;
+}
+.car-back {
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--glow-soft);
+  background: transparent;
+  color: var(--muted-foreground);
+  transition:
+    color var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out);
+}
+.car-back:hover {
+  color: var(--foreground);
+  border-color: var(--primary);
+}
+
+/* ══ 构建页 ══════════════════════════════════════════════════════════
+ * 顶部只留**一条输入**，不留对话记录 —— 对话住在右下角那个悬浮窗里。
+ * 页面上再摆一块聊天区，等于让「过程」抢走「成果」的地方。 */
+.build-cmd {
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px 8px 12px;
+}
+.build-cmd-icon {
+  width: 24px;
+  height: 24px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: color-mix(in oklab, var(--primary) 16%, transparent);
+  color: var(--primary);
+}
+.build-cmd-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  outline: none;
+  font-size: 0.84rem;
+}
+.build-cmd-input::placeholder {
+  color: var(--muted-foreground);
+}
+/* 已经开过工了 —— 这里就不是输入框，而是一句指路 */
+.build-cmd-input.as-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.8rem;
+  color: var(--muted-foreground);
+}
+.build-cmd-where {
+  flex: 0 0 auto;
+  font-size: 0.66rem;
+  color: var(--muted-foreground);
+  white-space: nowrap;
+}
+
+/* ── 清单：勾着的=在跑，空着的=停了 ── */
+.check-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding-right: 4px;
+  position: relative;
+}
+/* 选中高亮条 —— 绝对定位，切换时滑过去（粘合流体） */
+.list-slider {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 4px;
+  border-radius: var(--radius);
+  background: color-mix(in oklab, var(--primary) 10%, transparent);
+  border: 1px solid var(--glow-soft);
+  pointer-events: none;
+  z-index: 0;
+  transition:
+    transform var(--dur) var(--ease-out),
+    height var(--dur) var(--ease-out);
+}
+.check-row {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: var(--radius);
+  border: 1px solid transparent;
+  transition: background var(--dur-fast) var(--ease-out);
+}
+.check-row:hover {
+  background: var(--secondary);
+}
+.check-row[data-picked='true'] {
+  background: transparent;
+  border-color: transparent;
+}
+.check-row[data-picked='true']:hover {
+  background: transparent;
+}
+/* 行尾的状态块：（色点 + 字）和「正在跑」的点并列。
+   颜色给扫视，文字给确认 —— 只有颜色的活动，4 个没跑过的任务
+   和 1 个失败的看起来都只是「一个点」，读不出到底是什么。 */
+.check-side {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.check-st {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex: none;
+  font-size: 0.64rem;
+  white-space: nowrap;
+  color: var(--muted-foreground);
+}
+.check-st .dot {
+  width: 6px;
+  height: 6px;
+  flex: 0 0 6px;
+}
+.check-st.ok {
+  color: var(--primary);
+}
+.check-st.bad {
+  color: var(--destructive);
+}
+/* 勾本身是个真按钮：直接开关任务，不用点进去再翻开关 */
+.check-box {
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border-radius: 5px;
+  border: 1px solid var(--input);
+  background: transparent;
+  color: var(--muted-foreground);
+  display: grid;
+  place-items: center;
+  transition:
+    background var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
+}
+.check-box[data-on='true'] {
+  background: var(--primary);
+  border-color: transparent;
+  color: var(--primary-foreground);
+}
+.check-box[data-ghost='true'] {
+  border-style: dashed;
+  border-color: var(--hairline);
+}
+.check-main {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  text-align: left;
+  background: none;
+  border: none;
+  padding: 0;
+}
+.check-main.as-text {
+  cursor: default;
+}
+.check-main b {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.check-main em {
+  font-style: normal;
+  font-size: 0.68rem;
+  color: var(--muted-foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.check-sep {
+  margin: 10px 0 2px;
+  padding-top: 8px;
+  border-top: 1px solid var(--hairline);
+  font-size: 0.66rem;
+  letter-spacing: 0.04em;
+  color: var(--muted-foreground);
+}
+
+/* ── 节点头：这张卡是什么 ── */
+.node {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 0 0 auto;
+  padding: 8px 10px;
+  border-radius: var(--radius);
+  border: 1px solid var(--hairline);
+  background: color-mix(in oklab, var(--secondary) 40%, transparent);
+}
+.node-icon {
+  width: 28px;
+  height: 28px;
+  flex: 0 0 auto;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  background: color-mix(in oklab, var(--primary) 18%, transparent);
+  color: var(--primary);
+}
+.node-icon[data-on='false'] {
+  background: var(--secondary);
+  color: var(--muted-foreground);
+}
+.node-id {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+.node-title {
+  font-size: 0.82rem;
+  font-weight: 650;
+  font-family: inherit;
+  background: transparent;
+  border: 0;
+  outline: none;
+  color: var(--foreground);
+  padding: 0;
+  min-width: 0;
+  width: 100%;
+}
+.node-title::placeholder {
+  color: var(--muted-foreground);
+}
+.node-title:focus {
+  box-shadow: 0 1px 0 var(--glow-soft);
+}
+.node-chip {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--hairline);
+  background: transparent;
+  color: var(--muted-foreground);
+  font-size: 0.68rem;
+  transition:
+    background var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
+}
+.node-chip:hover:not(:disabled) {
+  background: var(--secondary);
+  border-color: var(--glow-soft);
+  color: var(--foreground);
+}
+.node-chip:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.node-acts {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex: 0 0 auto;
+}
+/* 挂在任务上的脚本 —— 脚本不是目的，挂上任务才是，所以它是节点的一个附属物 */
+.node-scripts {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 10px;
+  border-radius: var(--radius);
+  background: color-mix(in oklab, var(--secondary) 30%, transparent);
+}
+.node-script {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 0.7rem;
+  color: var(--muted-foreground);
+  min-width: 0;
+}
+.node-script code {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  color: var(--foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.node-script-meta {
+  margin-left: auto;
+  flex: 0 0 auto;
+  font-size: 0.64rem;
+  opacity: 0.8;
+}
+
+/* 上次跑得怎么样 —— 一句话摘要，成功绦绿底、失败红底 */
+.task-last {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 10px;
+  border-radius: var(--radius);
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--foreground);
+}
+.task-last.ok {
+  background: color-mix(in oklab, var(--primary) 14%, transparent);
+}
+.task-last.bad {
+  background: color-mix(in oklab, var(--destructive) 14%, transparent);
+}
+
+/* 详情中间那块自己滚 —— 「一屏不滚」是页面不滚，不是卡片不能滚 */
+.studio-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-right: 4px;
+}
+.run-art {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+
+/* ── 空状态居中 ─────────────────────────────────────────────────────
+ * 「输出 / 产物 / 历史」共用一块**高度固定**的地方。里面没东西时，
+ * 说明文字贴着左上角 —— 看着像「还没加载完」或者「这个框坏了」。
+ * 空的时候它就整块框的唯一内容，摆正中间才像一句话。
+ * ⚠️ 只管**空的时候**（`:has(> .placeholder)`）：有内容时这里是列表和行，
+ *    绝不能把那些行也拽到中间去。 */
+.run-art-body:has(> .placeholder),
+.run-art:has(> .placeholder),
+.run-hist:has(> .placeholder) {
+  display: grid;
+  place-content: center;
+  padding: 0 max(10%, 20px);
+}
+.run-art-body > .placeholder,
+.run-art > .placeholder,
+.run-hist > .placeholder {
+  /* 收着点宽度：长句子拉满一整行，反而没人读得下去 */
+  max-width: 34ch;
+  text-align: center;
+  line-height: 1.75;
+}
+
+/* 运行历史 —— 这个任务每次跑的结果，最新的在最上 */
+.run-hist {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 2px 0;
+}
+.run-hist-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  color: var(--foreground);
+  font-variant-numeric: tabular-nums;
+}
+.run-hist-row:hover {
+  background: color-mix(in oklab, var(--secondary) 40%, transparent);
+}
+.run-hist-time {
+  color: var(--muted-foreground);
+  flex: 0 0 auto;
+}
+.run-hist-state.ok {
+  color: var(--primary);
+}
+.run-hist-state.bad {
+  color: var(--destructive);
+}
+.run-hist-ms {
+  color: var(--muted-foreground);
+  flex: 0 0 auto;
+}
+.run-hist-trigger {
+  margin-left: auto;
+  color: var(--muted-foreground);
+  font-size: 0.66rem;
+  opacity: 0.8;
+}
+
+/* 任务搭建 */
+.studio-fields {
+  display: grid;
+  gap: 10px;
+  flex: 0 0 auto;
+}
+.field {
+  display: grid;
+  grid-template-columns: 76px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  font-size: 0.8rem;
+  color: var(--muted-foreground);
+}
+.field input {
+  padding: 8px 10px;
+  border-radius: var(--radius);
+  border: 1px solid var(--input);
+  background: var(--background);
+  outline: none;
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: 0.76rem;
+}
+.field input:focus {
+  border-color: var(--ring);
+}
+/* 命令是任务的命根子 —— 单独突出：等宽稍大、描边带苔绿，聚焦发光 */
+.pane-page .field.field-cmd input {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--foreground);
+  border-color: var(--glow-strong);
+}
+.pane-page .field.field-cmd input:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--glow-soft);
+}
+.field-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+.field-row input {
+  flex: 1 1 140px;
+}
+.chip.clickable {
+  cursor: pointer;
+  transition:
+    background var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out);
+}
+.chip.clickable:hover {
+  color: var(--foreground);
+  border-color: var(--glow-soft);
+}
+.chip.clickable.on {
+  background: var(--primary);
+  color: var(--primary-foreground);
+  border-color: transparent;
+}
+/* 调度自定义时间 —— 虚线圈圈输入框，输入「每天 HH:MM」 */
+.chip-input {
+  font-size: 0.68rem;
+  padding: 2px 9px;
+  border-radius: 999px;
+  border: 1px dashed var(--glow-soft);
+  background: transparent;
+  color: var(--foreground);
+  outline: none;
+  width: 132px;
+  font-variant-numeric: tabular-nums;
+}
+.chip-input::placeholder {
+  color: var(--muted-foreground);
+  opacity: 0.7;
+}
+.chip-input:focus {
+  border-color: var(--primary);
+  border-style: solid;
+}
+.hint {
+  margin: 0;
+  font-size: 0.72rem;
+  line-height: 1.65;
+  color: var(--muted-foreground);
+  flex: 0 0 auto;
+}
+.hint code {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  background: var(--secondary);
+  padding: 1px 5px;
+  border-radius: 5px;
+}
+.studio-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+}
+.studio-actions .action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* 知识库 */
+/* 知识库右栏 = markdown 编辑器：上面一排工具，下面一整块写字的地方 */
+.kb-edit {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.kb-tools {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-bottom: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--hairline);
+}
+/* 撑开，把「预览」开关推到最右 —— 它是开关，不跟记号按钮挤一堆 */
+.kb-tools-gap {
+  flex: 1 1 auto;
+}
+.kb-tool {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 7px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--muted-foreground);
+  font-size: 0.7rem;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    color var(--dur-fast) var(--ease-out),
+    background var(--dur-fast) var(--ease-out);
+}
+.kb-tool:hover {
+  background: color-mix(in oklab, var(--foreground) 7%, transparent);
+  color: var(--foreground);
+}
+.kb-tool-wide {
+  padding-inline: 10px;
+}
+.kb-tool-wide.on {
+  background: var(--secondary);
+  color: var(--foreground);
+}
+/* 预览区：只定「多大」，语法样式一律走 md.css —— 一份，不重复。
+ * 字号用 rem 给个基准，md.css 里全是 em，跟着它走。 */
+.kb-view {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding-right: 6px;
+  font-size: 0.82rem;
+  line-height: 1.7;
+}
+/* 知识库 —— 和构建页同一套玻璃语言 */
+.pane-page.kb {
+  background: var(--sunken);
+}
+.pane-page.kb .card {
+  border: 1px solid color-mix(in oklab, var(--foreground) 8%, transparent);
+  border-radius: 22px;
+  transition: border-color var(--dur) var(--ease-out);
+}
+.pane-page.kb .card:hover {
+  border-color: color-mix(in oklab, var(--foreground) 15%, transparent);
+}
+.pane-page.kb .kb-cm,
+.pane-page.kb .kb-new-inline {
+  background: color-mix(in oklab, var(--foreground) 3%, transparent);
+  border-color: color-mix(in oklab, var(--foreground) 10%, transparent);
+}
+.pane-page.kb .action-btn {
+  border-radius: 999px;
+  padding-inline: calc(var(--spacing) * 6);
+}
+
+/* ══ 设置页：只放「不配就用不起来」的东西 ══════════════════════════════
+ * 和构建页 / 知识库共用同一套玻璃卡语言（向 bencho 借的）—— 三页看起来才是一个应用。
+ * 布局：状态条一行 → 模型 | 外观 → 高级（折叠、横跨）。
+ * 第一屏只有两张卡 + 一行字，剩下的全在折叠里。 */
+
+.pane-page.settings {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  /* ⚠️ 行高必须是 max-content，**不能是 auto**。
+     容器高度是固定的（height:100%），grid 的 auto 行在放不下时会被**压扁**，
+     而不是把容器撑开 —— 表现出来就是「小屏幕上设置里很多东西直接不见了」
+     （实测 960×640 时通用卡从 331px 被压到 136px，内容被挤没）。
+     max-content = 按内容给足高度，放不下就滚（下面有 overflow: auto）。 */
+  grid-template-rows: max-content;
+  grid-auto-rows: max-content;
+  background: var(--sunken);
+  align-content: start;
+  overflow: auto;
+}
+/* 两张设置卡并排；下面几条横跨整行 —— 高级永远在最底。
+   ⚠️ 行号是手写的：删掉哪一个块（比如以前最上面那条引擎状态带），
+   下面的行号要跟着往前挪，不然会空出一行。 */
+.pane-page.settings > .set-model {
+  grid-column: 1;
+  grid-row: 1;
+}
+/* 第一行并排两张「要配才能用」的卡：模型 | 渠道。
+   桌宠降到第二行，**横跨整行** —— 它旁边那格空着不如给它。
+   （用户 2026-10-04 定的顺序） */
+.pane-page.settings > .set-gen {
+  grid-column: 1 / -1;
+  grid-row: 3;
+}
+.pane-page.settings > .set-adv {
+  grid-column: 1 / -1;
+  grid-row: 4;
+}
+.pane-page.settings > .set-ch {
+  grid-column: 2;
+  grid-row: 1;
+}
+.pane-page.settings > .set-pet {
+  grid-column: 1 / -1;
+  grid-row: 2;
+}
+/* 通用卡分**左右**两块：界面 | 文件位置。中间一条竖线，**不是折叠** ——
+   两块内容都要一眼看见，折起来就白分了。
+   两侧各留一段 padding，竖线才落在正中间。 */
+.set-blocks {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+  align-items: start;
+}
+.set-block {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--spacing) * 3);
+  min-width: 0;
+}
+.set-block:first-child {
+  padding-right: calc(var(--spacing) * 7);
+}
+.set-block + .set-block {
+  padding-left: calc(var(--spacing) * 7);
+  border-left: 1px solid color-mix(in oklab, var(--foreground) 7%, transparent);
+}
+.set-block-title {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--spacing) * 3);
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--muted-foreground);
+}
+.set-block-title .set-hint {
+  margin-left: auto;
+  font-weight: 400;
+}
+/* 路径行：一行一个位置，路径可选中复制 —— 这是地址，不是装饰 */
+.set-paths {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--spacing) * 2);
+}
+.set-path-row {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--spacing) * 3);
+  min-width: 0;
+}
+.set-path-row > span:first-child {
+  flex: 0 0 5rem;
+  font-size: 0.78rem;
+  color: var(--muted-foreground);
+}
+.set-path-row code {
+  flex: 1;
+  min-width: 0;
+  padding: calc(var(--spacing) * 1.6) calc(var(--spacing) * 2.4);
+  border-radius: 9px;
+  border: 1px solid color-mix(in oklab, var(--foreground) 9%, transparent);
+  background: color-mix(in oklab, var(--foreground) 3%, transparent);
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--muted-foreground);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  user-select: text;
+}
+.set-mini {
+  flex: none;
+  padding: calc(var(--spacing) * 1.6) calc(var(--spacing) * 3);
+  border: 1px solid color-mix(in oklab, var(--foreground) 12%, transparent);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted-foreground);
+  font-size: 0.72rem;
+  cursor: pointer;
+  transition:
+    color var(--dur-fast),
+    border-color var(--dur-fast);
+}
+.set-mini:hover {
+  color: var(--foreground);
+  border-color: color-mix(in oklab, var(--foreground) 22%, transparent);
+}
+.set-mini:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.set-mini:disabled:hover {
+  color: var(--muted-foreground);
+  border-color: color-mix(in oklab, var(--foreground) 12%, transparent);
+}
+/* 占位：没有按钮的那几行用它在右边撑齐，免得路径长短不一显得歪 */
+.set-mini-ghost {
+  flex: none;
+  width: 3.2rem;
+}
+.pane-page.settings .card {
+  border: 1px solid color-mix(in oklab, var(--foreground) 8%, transparent);
+  border-radius: 22px;
+  padding: calc(var(--spacing) * 5);
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--spacing) * 4);
+  transition: border-color var(--dur) var(--ease-out);
+}
+.pane-page.settings .card:hover {
+  border-color: color-mix(in oklab, var(--foreground) 15%, transparent);
+}
+.pane-page.settings .action-btn {
+  border-radius: 999px;
+  padding-inline: calc(var(--spacing) * 5);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.pane-page.settings .card-head h3 {
+  font-size: 0.95rem;
+}
+
+/* ── 引擎状态那套读数用的点 / 分隔线 ── */
+.set-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex: none;
+  background: color-mix(in oklab, var(--foreground) 35%, transparent);
+}
+.set-dot.ok {
+  background: var(--primary);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--primary) 22%, transparent);
+  /* 活着时它自己也在跳 —— 和右边的波形是一组信号 */
+  animation: vital-beat 1.8s ease-in-out infinite;
+}
+@keyframes vital-beat {
+  0%,
+  100% {
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--primary) 22%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 0 6px color-mix(in oklab, var(--primary) 7%, transparent);
+  }
+}
+.set-dot.bad {
+  background: var(--destructive);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--destructive) 22%, transparent);
+}
+
+/* ── 一行一个配置项：左边短标签，右边控件 ── */
+.set-fields {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--spacing) * 3);
+}
+.set-field {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--spacing) * 3);
+  min-width: 0;
+}
+.set-field > span:first-child {
+  flex: 0 0 5rem;
+  font-size: 0.8rem;
+  color: var(--muted-foreground);
+}
+.set-field-col {
+  flex-direction: column;
+  align-items: stretch;
+  gap: calc(var(--spacing) * 2);
+}
+.set-field input:not([type='range']) {
+  flex: 1;
+  min-width: 0;
+  padding: calc(var(--spacing) * 2.6) calc(var(--spacing) * 3);
+  border-radius: 12px;
+  border: 1px solid color-mix(in oklab, var(--foreground) 10%, transparent);
+  background: color-mix(in oklab, var(--foreground) 3%, transparent);
+  color: var(--foreground);
+  font: inherit;
+  font-size: 0.84rem;
+  transition: border-color var(--dur-fast) var(--ease-out);
+}
+.set-field input:not([type='range']):focus {
+  outline: none;
+  border-color: var(--glow-strong);
+}
+.set-field input[type='range'] {
+  flex: 1;
+  min-width: 0;
+  accent-color: var(--primary);
+}
+.set-val {
+  flex: 0 0 3rem;
+  text-align: right;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--muted-foreground);
+}
+
+/* ── 分段按钮组：主题 / 桌宠 / 引擎操作都用它 ── */
+.set-seg {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  padding: 3px;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--foreground) 5%, transparent);
+}
+.set-seg-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: calc(var(--spacing) * 2) calc(var(--spacing) * 3.4);
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted-foreground);
+  font-size: 0.79rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background var(--dur-fast) var(--ease-out),
+    color var(--dur-fast);
+}
+.set-seg-btn:hover {
+  color: var(--foreground);
+}
+.set-seg-btn.on {
+  background: color-mix(in oklab, var(--foreground) 11%, transparent);
+  color: var(--foreground);
+}
+.set-seg-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.set-hint {
+  color: var(--muted-foreground);
+  font-size: 0.76rem;
+}
+.set-foot {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--spacing) * 3);
+  flex-wrap: wrap;
+  margin-top: auto;
+}
+
+/* ── 出站推送（高级卡里的第三块）──
+ * 它**横跨整行**：上面两块是「引擎 | 日志」的左右对照，这一块是另一个话题
+ * （助手怎么找你），挤进任何一栏都会读成上面那一栏的附属。
+ *
+ * ⚠️ 必须把 `.set-block + .set-block` 给的那条左竖线和左内边距**收掉** ——
+ *    那条竖线是「左右两栏」的分隔线，横跨之后它就没有意义了，留着是一条悬空的线。 */
+.set-blocks > .set-block.set-push {
+  grid-column: 1 / -1;
+  padding-left: 0;
+  padding-right: 0;
+  border-left: 0;
+  border-top: 1px solid color-mix(in oklab, var(--foreground) 7%, transparent);
+  margin-top: calc(var(--spacing) * 5);
+  padding-top: calc(var(--spacing) * 5);
+}
+/* 下拉：长相跟 `.set-field input` 一套，别让同一张卡里出现两种输入控件 */
+.set-select {
+  flex: 1;
+  min-width: 0;
+  padding: calc(var(--spacing) * 2.2) calc(var(--spacing) * 3);
+  border-radius: 12px;
+  border: 1px solid color-mix(in oklab, var(--foreground) 10%, transparent);
+  background: color-mix(in oklab, var(--foreground) 3%, transparent);
+  font-size: 0.84rem;
+  cursor: pointer;
+  transition: border-color var(--dur-fast) var(--ease-out);
+}
+.set-select:focus {
+  outline: none;
+  border-color: var(--glow-strong);
+}
+/* ⚠️ 展开的那一列是**系统画的**，不写这两条在深色下会是白底黑字的原生列表 */
+.set-select option {
+  background: var(--popover);
+  color: var(--popover-foreground);
+}
+.set-select:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+/* 退出：唯一一个 destructive 的按钮，得看起来就不一样 */
+.set-quit {
+  flex: none;
+  padding: calc(var(--spacing) * 1.8) calc(var(--spacing) * 3.6);
+  border: 1px solid color-mix(in oklab, var(--destructive) 42%, transparent);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--destructive);
+  font-size: 0.76rem;
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease-out);
+}
+.set-quit:hover {
+  background: color-mix(in oklab, var(--destructive) 12%, transparent);
+}
+.set-adv-foot {
+  justify-content: flex-end;
+}
+.set-adv-foot .set-hint {
+  margin-right: auto;
+}
+
+/* ── 桌宠预览：左边改、右边立刻看得到 ──
+ * 形象 / 眼神 / 大小这三项**不预览就是盲选** —— 改完得跑去桌面看一眼才知道对不对。
+ * 岛用和桌面同一套语义色（ok / wait / bad），不然预览跟实际长得不一样就白做了。 */
+/* 卡内主体：左边一列设置，右边一块方形预览。
+   之前预览是整卡宽的一条扁矩形（634×192），桌宠缩在中间四周全是空的；
+   方形更像「一小块桌面」。
+   宽度取 17.5rem（中档字号下 280px）：这是**岛**的宽度需求，不是方框的 ——
+   岛上有任务名和一个「停掉」，撑开就是标题栏那颗那么大。
+   方框本身还是小的（下面 9.5rem 那个方形），只有长开成岛时才铺满这一列。
+   再窄一点，预览里的岛就只能砍内容，那就成了另一个东西。
+   ⚠️ 用网格「摆位」而不是改 JSX：卡片里三个块本来就是这个顺序（标题 → 设置 → 预览），
+   为了排版去搬 DOM 只会多出一层包装和一堆缩进。
+   ⚠️ 选择器必须和 `.pane-page.settings .card` 拼到同一条链上：那条是**三个类**（0,3,0），
+   单写 `.set-pet` 或 `.card.set-pet` 都压不住它，`display` 会被它改回 `flex`。
+   踩过一次：网格属性明明生效了，布局却还是老样子 —— 就是被这一条悄悄盖回去的。
+
+   ⚠️ 桌宠卡现在**横跨整行**（用户 2026-10-04 让把旁边空格给它），所以左列得**限宽**：
+   不限的话那几个滑块和按钮会被拉到 800 多 px，标签和控件中间空出一大片。
+   设 26rem（416px）刚好装下最长那行（「形象 + 四个按钮」），剩下的全给预览。 */
+.pane-page.settings .card.set-pet {
+  display: grid;
+  grid-template-columns: minmax(0, 26rem) minmax(0, 1fr);
+  column-gap: calc(var(--spacing) * 6);
+  row-gap: calc(var(--spacing) * 4);
+  align-items: start;
+}
+.set-pet > .card-head {
+  grid-column: 1 / -1;
+}
+/* 左列从 grid 顶一直掉到底 —— 里面靠 `margin-top: auto` 把说明钉在底部，
+   于是它的下沿和右边方形的下沿大致齐平，中间那段空白被摊开而不是全堆在末尾。 */
+.set-pet > .set-fields {
+  grid-column: 1;
+  align-self: stretch;
+  gap: calc(var(--spacing) * 4);
+}
+/* 统一行高。
+   形象 / 眼神 / 运行状态 里是分段按钮（天然 37px 高），大小 里是滑块（只有 19px）——
+   四行混在一起时行距看起来忽宽忽窄，这就是「挤」的来源。
+   给行一个下限，两排就一个节奏了。 */
+.set-pet .set-field {
+  min-height: 2.3rem;
+}
+.set-pet .set-note {
+  margin-top: auto;
+}
+.set-pet > .pet-preview {
+  grid-column: 2;
+}
+/* 预览区：**舞台在上、（状态 + 说明）在下**，整组居中。
+   ⚠️ 舞台宽度 26rem 是**展示框**的宽度；真实的岛只有 20rem ——
+      所以岛模式下要把它卡在 20rem，不能跟着盒子铺（详见下面那条）。 */
+.pet-preview {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: calc(var(--spacing) * 3);
+}
+/* 四个状态**并排一行**，宽度跟舞台一样（上下两块对齐成一块）
+   ⚠️ 宽度必须锁住（26rem）：不锁的话它跟着内容收缩，和上面的舞台就对不齐了 */
+.pet-preview-states {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  width: 26rem;
+  max-width: 100%;
+  gap: 3px;
+  padding: 3px;
+  border-radius: 12px;
+  background: color-mix(in oklab, var(--foreground) 5%, transparent);
+}
+.pet-preview-states .set-seg-btn {
+  padding: calc(var(--spacing) * 1.5) calc(var(--spacing) * 1);
+  font-size: 0.72rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.pet-preview-states .set-seg-btn:first-child {
+  padding-left: calc(var(--spacing) * 2);
+}
+.pet-preview-states .set-seg-btn:last-child {
+  padding-right: calc(var(--spacing) * 2);
+}
+/* 舞台：凹下去一块，像一个小小的桌面。
+   **高度固定**（两种模式一样）：小家伙是方的、岛是扁的，
+   高度跟着内容走的话切状态时卡片会跳（这张卡一直守的规矩）。
+   小家伙在里面居中（它自己只有 size 那么大）。 */
+.pet-preview-stage {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26rem;
+  max-width: 100%;
+  height: 12rem;
+  padding: 0;
+  border-radius: 16px;
+  border: 1px dashed color-mix(in oklab, var(--foreground) 12%, transparent);
+  background: color-mix(in oklab, var(--foreground) 3%, transparent);
+}
+/* 长开成岛：
+   ⚠️ 岛要的是**真实宽度 20rem**，不是盒子宽度（盒子 26rem 是给小家伙留的展示框）。
+   不卡住的话岛会被拉成 416px 的长胶囊，而真实的岛只有 320px ——
+   预览跟实际长得不一样就白做了。 */
+.pet-preview-stage[data-mode='island'] {
+  border-style: solid;
+}
+.pet-preview-stage[data-mode='island'] > * {
+  width: 20rem;
+  max-width: 100%;
+}
+.pet-preview-body {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+/* ⚠️ 这里原先有一套手写的 `.pet-preview-island`（自己画胶囊 + 状态点 + 琥珀告警色）。
+   已删 —— 岛早就有了现成的 `DynamicIsland`（标题栏那颗），
+   自己再画一份就是两份会长歪的东西。预览直接渲染那个组件。 */
+/* 方框下面一行小字，当图注用 —— 它是这块方形的说明，不是设置项 */
+.pet-preview-hint {
+  width: 26rem;
+  max-width: 100%;
+  margin: 0;
+  text-align: center;
+  font-size: 0.7rem;
+  line-height: 1.55;
+  color: var(--muted-foreground);
+}
+
+/* ── 渠道卡：一行一个渠道 [开关][扫码]，网关在最上面 ──────────────────
+ * ⚠️ 二维码必须**白底黑块**。深色主题下如果跟着主题走（浅字深底），
+ *    画出来就是个反色二维码 —— 很多手机扫不出来。所以这里写死配色，不走 token。
+ * ⚠️ 行高必须 1：二维码是用上下半块字符拼的，行高一大就断成一条条。 */
+.set-ch .set-note {
+  margin: 0;
+}
+/* 渠道列表：固定**两列**。卡现在只有模型卡那么宽（半列），
+   auto-fit 在这个宽度下会掉成 1 列（4 个渠道竖着排一长条），不如直接写死 2×2。
+   四个扫码渠道刚好摆成一个方块。 */
+.set-ch-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: calc(var(--spacing) * 2) calc(var(--spacing) * 4);
+}
+.set-ch-item {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--spacing) * 2.5);
+  min-width: 0;
+  /* 和左边那些 set-field 行对齐高度，不然一排排的节奏会乱 */
+  min-height: 2.3rem;
+}
+/* 按钮不许被压 —— 要挤也是名字先缩（它带省略号），不然「扫码登录」会折成两行 */
+.set-ch-item > button {
+  flex: none;
+}
+/* 「扫码登录」是 set-mini，和 set-seg-btn 差 ~5px 高 —— 并排站在一行里会歪。
+   改得跟 set-seg-btn 一样高。
+   ⚠️ 还得**定宽**：动作按钮有的写「扫码登录」有的写「配置」，宽度不一样的话，
+   名字又抢剩余宽度 → 同一列里那个开关会左右错开，看着像没对齐。 */
+.set-ch-item > .set-mini {
+  padding: calc(var(--spacing) * 2) calc(var(--spacing) * 3);
+  min-width: 4.8rem;
+  text-align: center;
+}
+/* 名字吃掉剩余宽度 —— 按钮就被推到每列的右边缘，多列之间自然对齐成一条竖线 */
+.set-ch-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.8rem;
+  color: var(--muted-foreground);
+}
+/* 卡头右边那一组：配对入口 + 网关状态 + 三个动作。
+   `.card-head` 是 `space-between`，直接塞多个孩子会把它们拱到正中，所以包一层；
+   `wrap` 是给窄窗口留的 —— 挤不下就换行，不要横着溢出。 */
+.set-ch-head-right {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: calc(var(--spacing) * 3);
+  min-width: 0;
+}
+.set-ch-gw {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(var(--spacing) * 2);
+  font-size: 0.74rem;
+  color: var(--muted-foreground);
+}
+/* 网关那盏灯 + 状态：跟卡头右边的「启动 / 重启 / 刷新」同一排 */
+.set-ch-gw.on .set-dot {
+  background: var(--primary);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--primary) 22%, transparent);
+}
+/* ── 渠道浮层：扫码 / 填凭据，**都不进卡片流** ──────────────────────
+ * `position: fixed` 是脱离文档流的，所以它开着的时候**卡片尺寸一动不动**。
+ * 原来那块二维码内嵌在卡里，会把卡从 350 撑到 ~690，下面「通用 / 高级」跟着往下跳。
+ * ⚠️ 二维码必须**白底黑块**（深色主题下反色就扫不出来），行高必须 1（上下半块拼的）。 */
+.set-ch-pop {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: grid;
+  place-items: center;
+}
+.set-ch-pop-scrim {
+  position: absolute;
+  inset: 0;
+  background: var(--scrim);
+  backdrop-filter: blur(3px);
+  animation: fade-in var(--dur) var(--ease-out);
+}
+/* 宽度跟着二维码走（max-content）—— 窗口只有二维码那么宽，不铺一块大白板 */
+.set-ch-pop-box {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--spacing) * 3);
+  width: max-content;
+  max-width: min(92vw, 34rem);
+  padding: calc(var(--spacing) * 5);
+  border-radius: 18px;
+  background: var(--popover);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-pop);
+  animation: pop-in var(--dur) var(--ease-spring);
+}
+/* 填凭据那个浮层：输入框要能拉长，所以给它一个固定宽度（qr 那个是跟着码走的） */
+.set-ch-pop-wide {
+  width: 22rem;
+}
+/* 配对面板再宽一点：发送人 id 是 `o9cq…@im.wechat` 这种长串，
+   22rem 下会被截掉一大截（而它正是「这是谁」的唯一线索）。 */
+.set-pair-pop {
+  width: 26rem;
+}
+.set-ch-pop-head {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--spacing) * 3);
+  font-size: 0.78rem;
+}
+.set-ch-pop-head .set-mini {
+  margin-left: auto;
+}
+.set-ch-qr-art {
+  align-self: center;
+  margin: 0;
+  padding: calc(var(--spacing) * 3);
+  border-radius: 12px;
+  background: #ffffff;
+  color: #0b0b0b;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  line-height: 1;
+  letter-spacing: 0;
+  white-space: pre;
+  overflow: auto;
+  max-width: 100%;
+}
+.set-ch-pop-foot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin: 0;
+  text-align: center;
+}
+/* 扫码失败时把子进程的原话摆出来：等宽、能滚、别抢二维码的位置。
+   它是「为什么没出码」的唯一入口 —— 只留最后一行在那时候什么都读不到。 */
+.set-ch-pop-log {
+  margin: 0;
+  max-height: 6.5rem;
+  overflow: auto;
+  padding: calc(var(--spacing) * 2.5) calc(var(--spacing) * 3);
+  border-radius: 10px;
+  border: 1px solid var(--hairline);
+  background: color-mix(in oklab, var(--foreground) 4%, transparent);
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  line-height: 1.45;
+  color: var(--muted-foreground);
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+/* ── 配对：谁能说话 ──
+ * 一行两块：左上是「码 + 渠道/剩余时间」、左下是发送人，右边是两个按钮跨两行。
+ * 码放最显眼是因为**对方在聊天里看到的就是它** —— 好对上号才能决定批不批。 */
+.set-pair-group {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--spacing) * 0.5);
+  min-width: 0;
+}
+.set-pair {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: calc(var(--spacing) * 3);
+  row-gap: calc(var(--spacing) * 1);
+  align-items: center;
+  padding: calc(var(--spacing) * 2) 0;
+  border-top: 1px solid var(--hairline);
+}
+.set-pair-info {
+  display: flex;
+  align-items: baseline;
+  gap: calc(var(--spacing) * 2.5);
+  min-width: 0;
+}
+.set-pair-info b {
+  font-family: var(--font-mono);
+  font-size: 0.84rem;
+  letter-spacing: 0.04em;
+  flex: none;
+}
+.set-pair-info span {
+  font-size: 0.68rem;
+  color: var(--muted-foreground);
+  white-space: nowrap;
+}
+/* 发送人 id 长（`o9cq…@im.wechat`），截尾 + title 里给全的 */
+.set-pair-id {
+  grid-column: 1;
+  font-family: var(--font-mono);
+  font-size: 0.64rem;
+  color: var(--muted-foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* 已允许那组的主行就是发送人本身，不该用等宽小字 */
+.set-pair-who {
+  font-family: var(--font-sans) !important;
+  font-size: 0.74rem !important;
+  letter-spacing: 0 !important;
+}
+.set-pair-acts {
+  grid-column: 2;
+  grid-row: 1 / 3;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+/* ── 填凭据的表单 ──
+ * 标签在上、输入框在下：5rem 宽的横排标签写不下「Client Secret」。
+ * ⚠️ 别用现成的 `.set-field-col` —— `.set-field > span:first-child` 是
+ *    `flex: 0 0 5rem`，在 column 方向会变成**高度 5rem**，标签被撑成一大块。 */
+.set-ch-form {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--spacing) * 3);
+}
+.set-ch-form label {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--spacing) * 1.5);
+}
+.set-ch-form label > span {
+  font-size: 0.74rem;
+  color: var(--muted-foreground);
+}
+.set-ch-form input {
+  width: 100%;
+  padding: calc(var(--spacing) * 2.4) calc(var(--spacing) * 3);
+  border-radius: 10px;
+  border: 1px solid color-mix(in oklab, var(--foreground) 10%, transparent);
+  background: color-mix(in oklab, var(--foreground) 3%, transparent);
+  color: var(--foreground);
+  font: inherit;
+  font-size: 0.82rem;
+  transition: border-color var(--dur-fast) var(--ease-out);
+}
+.set-ch-form input:focus {
+  outline: none;
+  border-color: var(--glow-strong);
+}
+/* 飞书专有：「扫码自动创建」那条路 */
+.set-ch-cfg-alt {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--spacing) * 2.5);
+  padding-bottom: calc(var(--spacing) * 3);
+  border-bottom: 1px solid color-mix(in oklab, var(--foreground) 7%, transparent);
+}
+.set-ch-cfg-alt > .set-mini {
+  flex: none;
+}
+.set-ch-cfg-alt > span {
+  margin: 0;
+  line-height: 1.5;
+}
+.set-ch-cfg-acts {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--spacing) * 2);
+}
+.set-ch-cfg-acts > .set-mini:last-child {
+  margin-left: auto;
+}
+
+/* ── 卡内的折叠（高级里的日志、通用里的位置）：默认不占视觉 ── */
+.set-more {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--spacing) * 2.5);
+  padding-top: calc(var(--spacing) * 3);
+  border-top: 1px solid color-mix(in oklab, var(--foreground) 7%, transparent);
+}
+/* ⚠️ 给 <details> 设 display:flex 会让浏览器**自带的收起机制失效**
+   （非 summary 子元素不再自动隐藏），得自己藏回去 */
+.set-more:not([open]) > :not(summary) {
+  display: none;
+}
+.set-more > summary {
+  cursor: pointer;
+  list-style: none;
+  font-size: 0.78rem;
+  color: var(--muted-foreground);
+}
+.set-more > summary::-webkit-details-marker {
+  display: none;
+}
+.set-more > summary::before {
+  content: '▸ ';
+}
+.set-more[open] > summary::before {
+  content: '▾ ';
+}
+
+.set-note {
+  margin: 0;
+  padding: calc(var(--spacing) * 3);
+  border-radius: 12px;
+  background: color-mix(in oklab, var(--foreground) 3%, transparent);
+  font-size: 0.78rem;
+  line-height: 1.65;
+  color: var(--muted-foreground);
+}
+/* 库根路径：等宽字、可折行 —— 它是一串要认清的路径，不是一句话 */
+.set-path {
+  padding: calc(var(--spacing) * 3);
+  border-radius: 12px;
+  border: 1px solid color-mix(in oklab, var(--foreground) 10%, transparent);
+  background: color-mix(in oklab, var(--foreground) 3%, transparent);
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+  line-height: 1.55;
+  color: var(--muted-foreground);
+  word-break: break-all;
+}
+.set-log {
+  margin: 0;
+  max-height: 13rem;
+  overflow: auto;
+  padding: calc(var(--spacing) * 3);
+  border-radius: 12px;
+  border: 1px solid color-mix(in oklab, var(--foreground) 10%, transparent);
+  background: color-mix(in oklab, var(--foreground) 3%, transparent);
+  font-family: var(--font-mono);
+  font-size: 0.73rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-all;
+  color: var(--muted-foreground);
+}
+
+/* 高级卡：左边是引擎操作、右边是日志，比例 0.9 : 1.1
+ * align-items: stretch 是故意的：让两块等高，左侧才能把「读数 + 按钮」
+ * 用 margin-top: auto 压到底 —— 否则日志一长，左块下面就空出一块。 */
+.set-adv .set-blocks {
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  align-items: stretch;
+}
+/* 日志框吃掉右块剩下的高度，两块的下沿就齐了 */
+.set-adv .set-log {
+  flex: 1;
+}
+/* 块标题右侧的小按钮靠右（若以后还往块标题里塞按钮）*/
+.set-block-title .set-mini {
+  margin-left: auto;
+  font-weight: 400;
+}
+/* 高级卡里的引擎状态行：点 + 一句状态 + 生命体征波形 + 版本号
+   波形吃满中间那段留白（原来是空的）；不运行就停下、变灰 ——
+   心电监护仪上「线不动了」比任何文字都直白。 */
+.set-adv-state {
+  flex: none;
+  font-size: 0.86rem;
+  font-weight: 600;
+}
+/* 高级卡的引擎状态行要放两组数据，间距比别处紧一档 */
+.set-adv .set-field {
+  gap: calc(var(--spacing) * 2);
+}
+.set-vital {
+  flex: 1;
+  min-width: 2.5rem;
+  height: 24px;
+  overflow: hidden;
+  color: var(--primary);
+  opacity: 0.3;
+  transition: opacity var(--dur);
+}
+.set-vital.on {
+  opacity: 1;
+}
+/* 蓝线 = 它脚下的 Python 运行时。和绿线分开上色，
+   是为了让「引擎挂了」和「Python 都没了」在图形上就能区分。 */
+.set-vital.py {
+  color: #4b8bbe;
+}
+/* 两组之间一根细竖线，不然四条信息连着看会粘成一团 */
+.set-sep {
+  flex: none;
+  width: 1px;
+  height: 14px;
+  background: color-mix(in oklab, var(--foreground) 15%, transparent);
+}
+/* 读数：运行时长 / 监听端口。
+   和波形是一套语言（监护仪下面那排小字），不做卡片、不加边框。 */
+.set-readout {
+  display: flex;
+  flex-wrap: wrap;
+  gap: calc(var(--spacing) * 2) calc(var(--spacing) * 5);
+  margin-top: auto;
+  font-family: var(--font-mono);
+  font-size: 0.76rem;
+  color: var(--foreground);
+}
+.set-readout > span {
+  display: inline-flex;
+  align-items: baseline;
+  gap: calc(var(--spacing) * 2);
+}
+.set-readout em {
+  font-style: normal;
+  font-family: var(--font-sans);
+  color: var(--muted-foreground);
+}
+/* 出品行：卡片最底一条，字号最小 —— 它是「归属」，不是「功能」。
+   上面横线把它和操作区分开，右端两个外链按钮（官网 / 仓库）。 */
+.set-credit {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--spacing) * 2);
+  flex-wrap: wrap;
+  padding-top: calc(var(--spacing) * 4);
+  border-top: 1px solid color-mix(in oklab, var(--foreground) 7%, transparent);
+  font-size: 0.74rem;
+  color: var(--muted-foreground);
+}
+.set-credit b {
+  font-weight: 600;
+  color: var(--foreground);
+}
+.set-link {
+  padding: calc(var(--spacing) * 1.4) calc(var(--spacing) * 2.6);
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted-foreground);
+  font: inherit;
+  font-size: 0.74rem;
+  cursor: pointer;
+  transition:
+    color var(--dur-fast),
+    border-color var(--dur-fast);
+}
+.set-link:first-of-type {
+  margin-left: auto;
+}
+.set-link:hover {
+  color: var(--foreground);
+  border-color: color-mix(in oklab, var(--foreground) 18%, transparent);
+}
+.set-vital svg {
+  display: block;
+  animation: vital-run 2.4s linear infinite;
+}
+.set-vital:not(.on) svg {
+  animation-play-state: paused;
+}
+.set-vital-line {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+@keyframes vital-run {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-120px);
+  }
+}
+/* 用户关了动效时保留静止的波形，不闪也不跳 */
+@media (prefers-reduced-motion: reduce) {
+  .set-vital svg,
+  .set-dot.ok {
+    animation: none;
+  }
+}
+.set-block .set-hint {
+  flex: none;
+  margin-left: 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ══ 响应式：窗口能从 960 拖到 1600 ═══════════════════════════════════
+ * 1080 以下堆成单列 —— 两列在 960 宽时每列只剩 ~460px，
+ * 路径会被截成「C:\Users\wade\AppData\Roami…」，等于没写。
+ * 卡内的左右两块同时改成上下，分隔线也从竖线换成横线。 */
+@media (max-width: 1080px) {
+  .pane-page.settings {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .pane-page.settings > .set-model,
+  .pane-page.settings > .set-pet,
+  .pane-page.settings > .set-ch,
+  .pane-page.settings > .set-gen,
+  .pane-page.settings > .set-adv {
+    grid-column: 1;
+    grid-row: auto;
+  }
+  .set-blocks,
+  .set-adv .set-blocks {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  /* 预览不窄屏了也不需特别处理：它就是一条竖着的 flex，
+     舞台/状态/说明都有 max-width:100%，自己会缩，不会挤出横向滚动条 */
+  .set-block:first-child {
+    padding-right: 0;
+    padding-bottom: calc(var(--spacing) * 4);
+  }
+  .set-block + .set-block {
+    padding-left: 0;
+    padding-top: calc(var(--spacing) * 4);
+    border-left: 0;
+    border-top: 1px solid color-mix(in oklab, var(--foreground) 7%, transparent);
+  }
+  /* 窄了就允许路径换行 —— 宁可多占一行，也别截成看不懂的半截 */
+  .set-path-row code {
+    white-space: normal;
+    word-break: break-all;
+    overflow: visible;
+    text-overflow: clip;
+  }
+}
+
+/* 就地新建的输入框（在分类组里，就一个） */
+.kb-new-inline {
+  margin: 2px 6px 3px;
+  padding: 6px 9px;
+  border-radius: 8px;
+  border: 1px solid var(--glow-soft);
+  background: color-mix(in oklab, var(--foreground) 3%, transparent);
+  outline: none;
+  font-size: 0.76rem;
+  color: var(--foreground);
+}
+.kb-new-inline:focus {
+  border-color: var(--primary);
+}
+.kb-empty {
+  margin: 0;
+  padding: 1px 6px;
+  font-size: 0.68rem;
+  color: var(--muted-foreground);
+  opacity: 0.55;
+}
+.kb-list {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.kb-group {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.kb-group-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 6px;
+  flex: 0 0 auto;
+}
+.kb-cat-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 0.66rem;
+  font-weight: 650;
+  color: var(--muted-foreground);
+  letter-spacing: 0.04em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.kb-cat-act {
+  opacity: 0;
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--muted-foreground);
+  cursor: pointer;
+  transition:
+    opacity var(--dur-fast) var(--ease-out),
+    background var(--dur-fast) var(--ease-out);
+}
+.kb-group-head:hover .kb-cat-act {
+  opacity: 0.75;
+}
+.kb-cat-act:hover {
+  background: color-mix(in oklab, var(--foreground) 8%, transparent);
+  color: var(--foreground);
+}
+.kb-cat-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 2px 6px;
+  border-radius: 6px;
+  border: 1px solid var(--glow-soft);
+  background: transparent;
+  outline: none;
+  font-size: 0.7rem;
+  color: var(--foreground);
+}
+/* markdown 编辑器内核（CodeMirror 6）的容器。
+ * 里面长什么样全在内核自己的 theme 里（见 MdEditor）—— 这里只管「占多高、边框」 */
+.kb-cm {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+  border-radius: var(--radius);
+  border: 1px solid var(--hairline);
+  background: color-mix(in oklab, var(--background) 70%, transparent);
+  transition: border-color var(--dur) var(--ease-out);
+}
+.kb-cm:focus-within {
+  border-color: var(--ring);
+}
+.kb-cm .cm-editor {
+  height: 100%;
+}
+/* ══ 其它页（引擎设置等）沿用的骨架 ═══════════════════════════════════ */
+
+.content {
+  padding: var(--pad);
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--spacing) * 4);
+  min-height: 0;
+  height: 100%;
+  overflow: auto;
+}
+.hero {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: calc(var(--spacing) * 4);
+}
+.hero h2 {
+  margin: 0;
+  font-size: 1.4rem;
+}
+.hero p {
+  margin: 0.35rem 0 0;
+  color: var(--muted-foreground);
+  font-size: 0.88rem;
+}
+.hero-actions {
+  display: flex;
+  gap: calc(var(--spacing) * 3);
+  flex-wrap: wrap;
+}
+
+.action-btn {
+  padding: calc(var(--spacing) * 3) calc(var(--spacing) * 5);
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--foreground);
+  font-weight: 600;
+  font-size: 0.85rem;
+  border-radius: var(--radius);
+  transition:
+    background var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast);
+}
+.action-btn:hover {
+  background: var(--secondary);
+}
+.action-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.action-btn.primary {
+  background: var(--primary);
+  color: var(--primary-foreground);
+  border-color: transparent;
+}
+.action-btn.primary:hover {
+  filter: brightness(1.06);
+}
+.action-btn.secondary {
+  background: transparent;
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--gap);
+}
+.stats .card {
+  gap: 6px;
+}
+
+.panels {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  gap: var(--gap);
+  min-height: 0;
+}
+
+.table {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: auto;
+}
+.table-head,
+.table-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(0, 0.9fr) minmax(0, 0.9fr) minmax(0, 0.8fr) auto;
+  gap: 10px;
+  align-items: center;
+  padding: 8px 6px;
+  font-size: 0.8rem;
+}
+.table-head {
+  color: var(--muted-foreground);
+  font-size: 0.72rem;
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  background: var(--card);
+}
+.table-row + .table-row {
+  border-top: 1px solid var(--hairline);
+}
+.cell-strong {
+  font-weight: 600;
+}
+.cell-mono {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.list-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 6px;
+}
+.list-item + .list-item {
+  border-top: 1px solid var(--hairline);
+}
+.agent-name {
+  font-size: 0.86rem;
+  font-weight: 600;
+}
+.agent-meta {
+  font-size: 0.72rem;
+  color: var(--muted-foreground);
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.form-row {
+  display: grid;
+  grid-template-columns: 92px 1fr;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.82rem;
+}
+.form-row input {
+  padding: 8px 10px;
+  border-radius: var(--radius);
+  border: 1px solid var(--input);
+  background: var(--background);
+  outline: none;
+  min-width: 0;
+}
+.form-row input:focus {
+  border-color: var(--ring);
+}
+.form-card {
+  gap: 10px;
+}
+.form-card input {
+  padding: 9px 11px;
+  border-radius: var(--radius);
+  border: 1px solid var(--input);
+  background: var(--background);
+  outline: none;
+}
+.form-card input:focus {
+  border-color: var(--ring);
+}
+.log-box {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-height: 42vh;
+  overflow: auto;
+  color: var(--muted-foreground);
+}
+
+/* 窄窗口：三列挤不下就并成两列 */
+@media (max-width: 1080px) {
+  .bento {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1.1fr) minmax(0, 0.9fr) minmax(0, 1fr);
+  }
+  .b-now {
+    grid-area: 1 / 1 / 2 / 3;
+  }
+  .b-heat {
+    grid-area: 2 / 1 / 3 / 2;
+  }
+  .b-alerts {
+    grid-area: 2 / 2 / 3 / 3;
+  }
+  .b-tasks {
+    grid-area: 3 / 1 / 4 / 3;
+  }
+  /* 任务创建 / 知识库 / AI 共建：两栏改成上下 */
+  .studio,
+  .kb,
+  .ai {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+  .studio > .card:first-child,
+  .kb > .card:first-child {
+    max-height: 220px;
+  }
+  .ai > .card:last-child {
+    max-height: 200px;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+ * bencho 皮肤 · 构建 / 知识库 / 设置 三个功能页
+ *
+ * 只作用在 .pane-page（构建、知识库）与 .content（设置）两个容器里，
+ * 主界面的 bento 卡片不在此列，不受影响。
+ *
+ * 一句话说明做法：让卡片「浮」起来 —— 底比页面更亮、hairline 描边、
+ * 柔和投影、更大的圆角和留白；hover 只亮描边，不晃动。
+ * 颜色全部从 token 取，浅色主题自动跟着变。
+ * ═══════════════════════════════════════════════════════════════════ */
+
+/* ── 卡片浮层化 ── */
+.pane-page .card,
+.content .card {
+  background: color-mix(in oklab, var(--card) 82%, var(--foreground) 5%);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-xl);
+  padding: calc(var(--spacing) * 7);
+  box-shadow: var(--shadow-2);
+  transition:
+    border-color var(--dur) var(--ease-out),
+    box-shadow var(--dur) var(--ease-out);
+}
+.pane-page .card:hover,
+.content .card:hover {
+  border-color: var(--glow-soft);
+}
+
+/* 内页（构建 / 知识库 / 设置）的卡是「玻璃」：半透明 --card 叠在 --sunken 上。
+   ⚠️ 不能写 `color-mix(in oklab, var(--foreground) 5%, transparent)` ——
+   那是「叠一层前景色」：深色主题下前景是浅的 → 卡片浮起（看着对），
+   浅色主题下前景是深的 → 卡片反而比底更暗，看起来是「沉下去」的。
+   用 --card 的半透明才两边都能浮起来。 */
+.pane-page.build .card,
+.pane-page.kb .card,
+.pane-page.settings .card {
+  background: color-mix(in oklab, var(--card) 72%, transparent);
+}
+
+/* 顶部那根输入条：同样浮层，但 padding 保持紧凑（它是「一条」不是「一块」） */
+.pane-page .build-cmd {
+  padding: 10px 12px 10px 14px;
+}
+
+/* ── 卡片标题：一颗苔绿小圆点做品牌记号 ── */
+.content .card-head h3,
+.pane-page .card-head h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.95rem;
+  font-weight: 680;
+}
+.content .card-head h3::before,
+.pane-page .card-head h3::before {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--primary);
+  box-shadow: 0 0 8px var(--glow-strong);
+}
+
+/* ── 页面大标题更大气 ── */
+.content .hero h2 {
+  font-size: 1.72rem;
+  font-weight: 720;
+  letter-spacing: -0.015em;
+}
+.content .hero p {
+  font-size: 0.9rem;
+}
+
+/* ── 输入框：卡片里的「槽」，聚焦时描边发光 ── */
+.content .form-row input,
+.content .form-card input,
+.pane-page .field input,
+.pane-page .kb-new-inline {
+  background: color-mix(in oklab, var(--background) 58%, transparent);
+  border: 1px solid var(--hairline);
+  transition:
+    border-color var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out);
+}
+.content .form-row input:focus,
+.content .form-card input:focus,
+.pane-page .field input:focus,
+.pane-page .kb-new-inline:focus {
+  border-color: var(--ring);
+  box-shadow: 0 0 0 3px var(--glow-soft);
+}
+
+/* ── 按钮：更圆一点，hover 亮描边 ── */
+.content .action-btn,
+.pane-page .action-btn {
+  border-radius: calc(var(--radius) + 2px);
+  transition:
+    background var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out);
+}
+.content .action-btn:hover:not(:disabled):not(.primary),
+.pane-page .action-btn:hover:not(:disabled):not(.primary) {
+  border-color: var(--glow-soft);
+  box-shadow: 0 0 0 3px var(--glow-soft);
+}
